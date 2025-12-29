@@ -23,6 +23,10 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/chat', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'chat.html'));
 });
 
@@ -643,7 +647,9 @@ io.on('connection', (socket) => {
       if (adminLogin) {
         if (adminPassword === db.ADMIN_PLUS_PASSWORD) {
           // 管理者+ としてログイン
-        } else if (!adminPassword || adminPassword !== db.EXTRA_ADMIN_PASSWORD) {
+        } else if (adminPassword === db.EXTRA_ADMIN_PASSWORD) {
+          // 通常の管理者としてログイン
+        } else {
           return callback({ success: false, error: '管理者パスワードが正しくありません' });
         }
       }
@@ -715,21 +721,16 @@ io.on('connection', (socket) => {
       const canMonitorPM = db.ADMIN_USERS.includes(currentUser);
       const canViewIpInfo = canMonitorPM || isAdminPlusUser;
 
-      if (canMonitorPM) {
+      if (canViewIpInfo) {
         try {
           allPrivateMessagesForAdmin = await db.getAllPrivateMessages();
+          userIpHistory = await db.getAllUserIpHistory();
         } catch (adminPmError) {
-          console.error('Error fetching all private messages for admin:', adminPmError.message);
+          console.error('Error fetching data for privileged user:', adminPmError.message);
         }
       }
 
-      if (canViewIpInfo) {
-        try {
-          userIpHistory = await db.getAllUserIpHistory();
-        } catch (ipHistError) {
-          console.error('Error fetching user IP history:', ipHistError.message);
-        }
-      }
+      console.log(`[IP History Debug] User: ${currentUser}, canViewIpInfo: ${canViewIpInfo}, count: ${userIpHistory.length}`);
 
       const uniqueOnlineUsers = getUniqueOnlineUsers();
       console.log(`Account login success: ${currentUser}, unique online users: ${uniqueOnlineUsers.length}`);
