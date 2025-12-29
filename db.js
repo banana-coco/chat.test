@@ -4,10 +4,10 @@ const crypto = require('crypto');
 
 const MAX_HISTORY = 500;
 const SALT_ROUNDS = 10;
-const ADMIN_PASSWORD = 'choco1234banana';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'choco1234banana';
 const ADMIN_USERS = ['ばなな', 'チョコわかめ'];
-const EXTRA_ADMIN_PASSWORD = 'a0966a';
-const ADMIN_PLUS_PASSWORD = 'a0966a+a0966a';
+const EXTRA_ADMIN_PASSWORD = process.env.EXTRA_ADMIN_PASSWORD || 'a0966a';
+const ADMIN_PLUS_PASSWORD = process.env.ADMIN_PLUS_PASSWORD || 'a0966a+a0966a';
 
 let pool = null;
 let useDatabase = false;
@@ -995,6 +995,7 @@ module.exports = {
   getAllIpBans,
   saveUserIpHistory,
   getAllUserIpHistory,
+  ADMIN_PLUS_PASSWORD,
   ADMIN_USERS,
   MAX_HISTORY,
   EXTRA_ADMIN_PASSWORD
