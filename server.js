@@ -138,6 +138,14 @@ async function processCommand(command, username, socket, isAdmin) {
       io.emit('allMessagesDeleted');
       return { type: 'system', message: '管理者がすべてのメッセージを削除しました' };
 
+    case '/clear':
+      if (!isAdmin) {
+        return { type: 'error', message: 'このコマンドは管理者専用です' };
+      }
+      messages = [];
+      io.emit('allMessagesDeleted');
+      return { type: 'system', message: '管理者が表示上のメッセージをクリアしました（履歴は保持されます）' };
+
     case '/deletemessage':
       // This is a special internal case handled by the socket.on('deleteMessage') event
       // but we keep it here if needed for direct command use (though normally not used this way)
@@ -162,7 +170,7 @@ async function processCommand(command, username, socket, isAdmin) {
       let isMuteTargetAdmin = false;
       if (muteTargetSocketSet) {
         for (const sid of muteTargetSocketSet) {
-          if (adminUsers.has(sid)) {
+          if (adminUsers.has(sid) || adminPlusUsers.has(sid)) {
             isMuteTargetAdmin = true;
             break;
           }
@@ -204,7 +212,7 @@ async function processCommand(command, username, socket, isAdmin) {
       const banUserSocketSet = userSockets.get(banTarget);
       let isTargetAdmin = false;
       for (const sid of banUserSocketSet) {
-        if (adminUsers.has(sid)) {
+        if (adminUsers.has(sid) || adminPlusUsers.has(sid)) {
           isTargetAdmin = true;
           break;
         }
@@ -223,6 +231,7 @@ async function processCommand(command, username, socket, isAdmin) {
         }
         onlineUsers.delete(sid);
         adminUsers.delete(sid);
+        adminPlusUsers.delete(sid);
       }
       userSockets.delete(banTarget);
       userStatusMap.delete(banTarget);
@@ -296,6 +305,7 @@ async function processCommand(command, username, socket, isAdmin) {
             }
             onlineUsers.delete(sid);
             adminUsers.delete(sid);
+            adminPlusUsers.delete(sid);
           }
           userSockets.delete(affectedUser);
           userStatusMap.delete(affectedUser);
@@ -344,6 +354,7 @@ async function processCommand(command, username, socket, isAdmin) {
           }
           onlineUsers.delete(sid);
           adminUsers.delete(sid);
+          adminPlusUsers.delete(sid);
         }
         userSockets.delete(ipBanTarget);
         userStatusMap.delete(ipBanTarget);
