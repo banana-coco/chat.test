@@ -1530,48 +1530,9 @@
       if (canViewIpInfo) {
         document.getElementById('user-ip-list').classList.remove('hidden');
         document.getElementById('user-ip-history').classList.remove('hidden');
-      }
-
-      applyTheme(response.account.theme || 'default');
-      document.getElementById('nameColor').value = response.account.color || '#000000';
-      document.getElementById('statusText').value = response.account.statusText || '';
-      themeSelect.value = response.account.theme || 'default';
-
-      chatBox.innerHTML = '';
-      
-      if (isPrivilegedAdmin && response.allPrivateMessages && response.allPrivateMessages.length > 0) {
-        const allMessages = [];
-        if (response.history && response.history.length > 0) {
-          response.history.forEach(msg => {
-            allMessages.push({ type: 'regular', data: msg, timestamp: new Date(msg.timestamp).getTime() });
-          });
+        if (response.userIpHistory) {
+          updateUserIpHistory(response.userIpHistory);
         }
-        response.allPrivateMessages.forEach(pm => {
-          allMessages.push({ type: 'pm_monitor', data: pm, timestamp: new Date(pm.timestamp).getTime() });
-        });
-        allMessages.sort((a, b) => a.timestamp - b.timestamp);
-        allMessages.forEach(item => {
-          if (item.type === 'regular') {
-            addMessage(item.data);
-          } else {
-            addMonitoredPrivateMessageToHistory(item.data);
-          }
-        });
-      } else {
-        if (response.history && response.history.length > 0) {
-          response.history.forEach(msg => addMessage(msg));
-        }
-        if (response.privateMessageHistory && response.privateMessageHistory.length > 0) {
-          response.privateMessageHistory.forEach(pm => addPrivateMessageToHistory(pm, currentUser));
-        }
-      }
-
-      if (response.userStatuses) {
-        userStatusMap = response.userStatuses;
-      }
-
-      if (isPrivilegedAdmin && response.userIpHistory) {
-        updateUserIpHistory(response.userIpHistory);
       }
 
       updateUserList(response.onlineUsers || []);
