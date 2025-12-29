@@ -1016,7 +1016,10 @@ io.on('connection', (socket) => {
         statusText: statusText
       };
 
-      await addMessageToStorage(messageData);
+      console.log(`[Message Debug] Attempting to save message from ${displayName}: ${data.message.substring(0, 20)}...`);
+      const saved = await addMessageToStorage(messageData);
+      console.log(`[Message Debug] Save result: ${saved ? 'Success' : 'Failed'}`);
+      
       io.emit('message', messageData);
       callback({ success: true, id: messageData.id });
     } catch (error) {
