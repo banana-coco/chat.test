@@ -331,12 +331,16 @@ async function getMessages(limit = MAX_HISTORY) {
 }
 
 async function addMessage(messageData) {
-  if (!useDatabase) return false;
+  if (!useDatabase) {
+    console.log('[DB Debug] addMessage failed: Database not connected');
+    return false;
+  }
 
   try {
-    await pool.query(`
+    const result = await pool.query(`
       INSERT INTO messages (id, username, message, color, timestamp, reply_to_id, reply_to_username, reply_to_message, edited, is_system_reply)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING id
     `, [
       messageData.id,
       messageData.username,
@@ -350,10 +354,11 @@ async function addMessage(messageData) {
       messageData.isSystemReply || false
     ]);
 
+    console.log(`[DB Debug] Message inserted successfully: ${result.rows[0].id}`);
     await trimMessages();
     return true;
   } catch (error) {
-    console.error('Error adding message:', error.message);
+    console.error('[DB Debug] Error adding message:', error.message);
     return false;
   }
 }
@@ -718,9 +723,10 @@ async function addPrivateMessage(messageData) {
       messageData.color || '#000000',
       messageData.timestamp
     ]);
+    console.log(`[DB Debug] Private message inserted: ${messageData.id}`);
     return true;
   } catch (error) {
-    console.error('Error adding private message:', error.message);
+    console.error('[DB Debug] Error adding private message:', error.message);
     return false;
   }
 }
