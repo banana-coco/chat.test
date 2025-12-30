@@ -299,13 +299,10 @@
     }
 
     .input-area {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
       margin-bottom: 10px;
-    }
-
-    .input-hint {
-      font-size: 12px;
-      color: #888;
-      margin: 5px;
     }
 
     .input-area textarea {
@@ -321,28 +318,26 @@
       line-height: 1.5;
     }
 
-    .theme-dark .input-area textarea {
-      background: #333;
-      border-color: #555;
-      color: #ddd;
-    }
-
-    .input-area textarea:focus {
-      outline: none;
-      border: 1px solid #3498db;
-      box-shadow: 0 0 5px rgba(52,152,219,0.5);
-      transition: box-shadow 0.3s ease, border 0.3s ease;
-    }
-
-    .button-area {
+    .input-controls {
       display: flex;
-      gap: 10px;
-      margin: 0 5px;
       justify-content: space-between;
-      flex-wrap: wrap;
+      align-items: center;
+      margin: 0 5px;
     }
 
-    .button-area button {
+    .input-hint {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .char-count {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .input-area button#send-btn {
+      align-self: flex-start;
+      margin: 5px;
       background-color: #3498db;
       color: #fff;
       border: none;
@@ -353,7 +348,7 @@
       font-weight: bold;
     }
 
-    .button-area button:hover {
+    .input-area button:hover {
       background-color: #2980b9;
       transform: scale(1.05);
     }
@@ -361,8 +356,14 @@
     .button-row {
       display: flex;
       gap: 10px;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       margin-bottom: 15px;
+      align-items: center;
+      position: relative;
+    }
+
+    .logout-container {
+      margin-left: auto;
     }
 
     .button-row button,
@@ -491,15 +492,6 @@
     .theme-dark .command-item.admin-only {
       background: #4a3333;
       border-color: #c0392b;
-    }
-
-    .admin-plus-badge {
-      font-size: 10px;
-      background: #9b59b6;
-      color: white;
-      padding: 2px 6px;
-      border-radius: 4px;
-      margin-left: 6px;
     }
 
     .admin-badge {
@@ -909,64 +901,62 @@
     #user-ip-history {
       background: #e0ffe0;
       border: 2px solid #27ae60;
-      border-radius: 12px;
+      border-radius: 8px;
       padding: 15px;
-      margin-bottom: 20px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      margin-bottom: 15px;
     }
 
     .theme-dark #user-ip-history {
-      background: #1a2a1a;
+      background: #2a4a2a;
       border-color: #27ae60;
     }
 
     #user-ip-history h4 {
       margin: 0 0 15px 0;
       color: #27ae60;
-      font-size: 16px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    #user-ip-history h4::before {
-      content: "📋";
+      font-size: 14px;
     }
 
     .theme-dark #user-ip-history h4 {
       color: #2ecc71;
     }
 
+    #ip-history-search {
+      background: #fff;
+      color: #333;
+    }
+
+    .theme-dark #ip-history-search {
+      background: #444;
+      border-color: #555 !important;
+      color: #ddd;
+    }
+
     #ip-history-content {
-      max-height: 300px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
+      background: #fff;
+    }
+
+    .theme-dark #ip-history-content {
+      background: #333;
+      border-color: #555 !important;
     }
 
     .ip-history-item {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      align-items: center;
-      padding: 8px;
-      background: rgba(255, 255, 255, 0.5);
-      border-radius: 4px;
-      border: 1px solid rgba(0, 0, 0, 0.05);
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
       font-size: 13px;
+      flex-wrap: wrap;
     }
 
-    .theme-dark .ip-history-item {
-      background: rgba(255, 255, 255, 0.05);
-      border-color: rgba(255, 255, 255, 0.1);
+    .ip-history-item:last-child {
+      border-bottom: none;
     }
 
     .ip-history-username {
       font-weight: bold;
       color: #333;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
 
     .theme-dark .ip-history-username {
@@ -976,7 +966,6 @@
     .ip-history-ip {
       font-family: monospace;
       color: #666;
-      text-align: center;
     }
 
     .theme-dark .ip-history-ip {
@@ -986,21 +975,7 @@
     .ip-history-time {
       font-size: 11px;
       color: #888;
-      text-align: right;
-    }
-
-    @media (max-width: 600px) {
-      .ip-history-item {
-        grid-template-columns: 1fr 1fr;
-        gap: 2px;
-      }
-      .ip-history-time {
-        grid-column: span 2;
-        text-align: left;
-        margin-top: 2px;
-        border-top: 1px dashed rgba(0,0,0,0.05);
-        padding-top: 2px;
-      }
+      width: 100%;
     }
 
     .command-item.privileged-admin-only {
@@ -1011,100 +986,6 @@
     .theme-dark .command-item.privileged-admin-only {
       background: #3d2a4a;
       border-color: #8e44ad;
-    }
-
-    .rules-modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.7);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s ease;
-    }
-
-    .rules-modal.show {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .rules-modal-content {
-      background: white;
-      border-radius: 16px;
-      padding: 30px;
-      max-width: 600px;
-      max-height: 80vh;
-      overflow-y: auto;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    }
-
-    .theme-dark .rules-modal-content {
-      background: #333;
-      color: #ddd;
-    }
-
-    .theme-dark .rules-modal-content h1 {
-      color: #ddd;
-    }
-
-    .theme-dark .rules-modal-content p {
-      color: #aaa;
-    }
-
-    .rules-modal-content h2 {
-      color: #667eea;
-      margin-bottom: 20px;
-      text-align: center;
-    }
-
-    .theme-dark .rules-modal-content h2 {
-      color: #5dade2;
-    }
-
-    .rules-modal-content h3 {
-      color: #667eea;
-    }
-
-    .theme-dark .rules-modal-content h3 {
-      color: #5dade2;
-    }
-
-    .rules-modal-content .rule-item {
-      background: #f8f9fa;
-      border-left: 4px solid #667eea;
-      padding: 15px;
-      margin-bottom: 12px;
-      border-radius: 8px;
-    }
-
-    .theme-dark .rules-modal-content .rule-item {
-      background: #444;
-      border-left-color: #5dade2;
-    }
-
-    .rules-modal-content .rule-item strong {
-      color: #667eea;
-    }
-
-    .theme-dark .rules-modal-content .rule-item strong {
-      color: #5dade2;
-    }
-
-    .rules-modal-content .rule-description {
-      font-size: 13px;
-      color: #555;
-      margin-top: 5px;
-      line-height: 1.5;
-    }
-
-    .theme-dark .rules-modal-content .rule-description {
-      color: #aaa;
     }
 
     @media (max-width: 600px) {
@@ -1123,12 +1004,13 @@
       }
 
       .button-row {
-        flex-direction: column;
+        flex-direction: row;
+        flex-wrap: nowrap;
       }
 
       .button-row button,
       .button-row a {
-        width: 100%;
+        flex: 1;
         text-align: center;
       }
 
@@ -1156,7 +1038,7 @@
         <div class="admin-login-option" style="margin: 15px 0; padding: 10px; border: 1px solid #e0e0e0; border-radius: 8px; background: #f9f9f9;">
           <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px;">
             <input type="checkbox" id="adminLoginCheck" style="width: 18px; height: 18px; cursor: pointer;">
-            <span>管理者または管理者+としてログイン</span>
+            <span>管理者としてログイン</span>
           </label>
           <div id="adminPasswordContainer" class="hidden" style="margin-top: 10px;">
             <input type="password" id="adminPassword" placeholder="管理者パスワード" style="width: 100%; padding: 12px; border: 2px solid #e74c3c; border-radius: 8px; font-size: 14px;">
@@ -1185,44 +1067,6 @@
     </div>
   </div>
 
-  <div id="rules-modal" class="rules-modal">
-    <div class="rules-modal-content">
-      <h1 style="text-align: center; color: #333; margin-bottom: 10px; font-size: 36px; line-height: 1.2;">choco-chat</h1>
-      <p style="text-align: center; color: #666; margin-bottom: 25px; font-size: 16px; line-height: 1.4;">このチャットのルール</p>
-      
-      <div style="margin-bottom: 20px;">
-        <h3 style="color: #667eea; margin-bottom: 12px;">⚠️ 重要なルール</h3>
-        
-        <div class="rule-item">
-          <strong>あらしは即BAN</strong>
-          <div class="rule-description">
-            えっとね、ここの管理者があなたの発言とかによって荒らしかどうか見極めるよ
-          </div>
-        </div>
-
-        <div class="rule-item">
-          <strong>下ネタもだめだよ</strong>
-          <div class="rule-description">
-            不快な思いをする人いるからね～　banさせてもらうかも♪
-          </div>
-        </div>
-
-        <div class="rule-item">
-          <strong>アカウントの作成について</strong>
-          <div class="rule-description">
-            ん～と、banされたからってアカウント作り直して入ろうとしないでね♪<br>
-            同一人物かどうかこっちは見極められるから 
-          </div>
-        </div>
-      </div>
-
-      <p style="text-align: center; font-size: 12px; color: #888; margin-top: 20px;">
-        ため口でいいよ～<br>
-        ここの人はみんな優しいから遠慮なくしゃべってね
-      </p>
-    </div>
-  </div>
-
   <div id="chat-section" class="hidden">
     <div class="chat-header">
       <h1>choco-chat</h1>
@@ -1232,7 +1076,6 @@
     <div class="user-info-display">
       ログイン中: <span class="display-name" id="current-display-name"></span>
       <span id="admin-indicator" class="hidden" style="background: #e74c3c; color: white; padding: 2px 8px; border-radius: 4px; margin-left: 8px; font-size: 12px;">管理者</span>
-      <span id="admin-plus-indicator" class="hidden" style="background: #9b59b6; color: white; padding: 2px 8px; border-radius: 4px; margin-left: 8px; font-size: 12px;">管理者+</span>
     </div>
 
     <div class="online-info">
@@ -1251,22 +1094,30 @@
     </div>
 
     <div class="input-area">
-      <textarea id="message-input" placeholder="メッセージを入力..." maxlength="50"></textarea>
-      <div class="input-hint">Enterで送信 / Shift+Enter または Space+Enterで改行</div>
-      <div class="button-area">
+      <textarea id="message-input" placeholder="メッセージを入力..." maxlength="320"></textarea>
+      <div class="input-controls">
+        <div class="input-hint">Enterで送信 / Shift+Enter または Space+Enterで改行</div>
+        <div class="char-count"><span id="char-counter">0</span>/320</div>
+      </div>
+      <div class="button-row">
         <button id="send-btn">送信</button>
-        <button id="logoutButton">ログアウト</button>
+        <div class="logout-container">
+          <button id="logoutButton">ログアウト</button>
+        </div>
       </div>
     </div>
 
     <div id="user-ip-list" class="hidden">
-      <h4>【管理者+ / 特権管理者専用】オンラインユーザーIPリスト</h4>
+      <h4>【特権管理者専用】オンラインユーザーIPリスト</h4>
       <div id="ip-list-content"></div>
     </div>
 
     <div id="user-ip-history" class="hidden">
-      <h4>【管理者+ / 特権管理者専用】全ユーザーIP履歴</h4>
-      <div id="ip-history-content"></div>
+      <h4>【特権管理者専用】全ユーザーIP履歴</h4>
+      <div style="margin-bottom: 15px;">
+        <input type="text" id="ip-history-search" placeholder="ユーザー名で検索..." style="width: 100%; padding: 10px; border: 1px solid #27ae60; border-radius: 4px; font-size: 14px;">
+      </div>
+      <div id="ip-history-content" style="max-height: 400px; overflow-y: scroll; border: 1px solid #27ae60; border-radius: 4px; padding: 10px;"></div>
     </div>
 
     <div id="command-summary">
@@ -1301,11 +1152,6 @@
           <div class="command-desc">BANを解除します</div>
           <div class="command-example">例: /unban ユーザー名</div>
         </div>
-        <div class="command-item admin-plus-only">
-          <div class="command-name">/ipban<span class="admin-plus-badge">管理者+専用</span></div>
-          <div class="command-desc">ユーザー名またはIPアドレスでBANする</div>
-          <div class="command-example">例: /ipban ユーザー名</div>
-        </div>
         <div class="command-item privileged-admin-only">
           <div class="command-name">/ipban<span class="admin-badge" style="background: #9b59b6;">特権管理者専用</span></div>
           <div class="command-desc">ユーザー名またはIPアドレスでBANする</div>
@@ -1319,10 +1165,6 @@
         <div class="command-item privileged-admin-only">
           <div class="command-name">/ipbanlist<span class="admin-badge" style="background: #9b59b6;">特権管理者専用</span></div>
           <div class="command-desc">IPバンリストを表示</div>
-        </div>
-        <div class="command-item privileged-admin-only">
-          <div class="command-name">/banlist<span class="admin-badge" style="background: #9b59b6;">特権管理者専用</span></div>
-          <div class="command-desc">BAN/IPバンリストを詳細表示</div>
         </div>
       </div>
     </div>
@@ -1394,7 +1236,6 @@
     let openMenuId = null;
     let userStatusMap = {};
     let spacePressed = false;
-    let isSending = false;
 
     const savedToken = localStorage.getItem('chatToken');
     if (savedToken) {
@@ -1427,7 +1268,6 @@
 
     let typingTimeout;
     let heartbeatInterval;
-    let rulesModalTimeout;
 
     document.getElementById('showSignup').addEventListener('click', () => {
       loginForm.classList.remove('active');
@@ -1459,29 +1299,13 @@
     function showAuthError(message, dbError = null) {
       authSuccess.classList.add('hidden');
       if (dbError) {
-        const errorDiv = document.createElement('div');
-        errorDiv.style.fontWeight = 'bold';
-        errorDiv.style.marginBottom = '10px';
-        errorDiv.textContent = message;
-        
-        const causeDiv = document.createElement('div');
-        causeDiv.style.marginBottom = '8px';
-        causeDiv.innerHTML = '<strong>原因:</strong> ';
-        causeDiv.appendChild(document.createTextNode(dbError.cause || '不明'));
-        
-        const solutionDiv = document.createElement('div');
-        solutionDiv.style.background = '#fff3cd';
-        solutionDiv.style.color = '#856404';
-        solutionDiv.style.padding = '10px';
-        solutionDiv.style.borderRadius = '6px';
-        solutionDiv.style.marginTop = '10px';
-        solutionDiv.innerHTML = '<strong>解決方法:</strong><br>';
-        solutionDiv.appendChild(document.createTextNode(dbError.solution || '管理者に連絡してください'));
-        
-        authError.innerHTML = '';
-        authError.appendChild(errorDiv);
-        authError.appendChild(causeDiv);
-        authError.appendChild(solutionDiv);
+        authError.innerHTML = `
+          <div style="font-weight: bold; margin-bottom: 10px;">${message}</div>
+          <div style="margin-bottom: 8px;"><strong>原因:</strong> ${dbError.cause || '不明'}</div>
+          <div style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 6px; margin-top: 10px;">
+            <strong>解決方法:</strong><br>${dbError.solution || '管理者に連絡してください'}
+          </div>
+        `;
       } else {
         authError.textContent = message;
       }
@@ -1500,9 +1324,7 @@
       currentUser = response.account.displayName;
       currentProfile = response.account;
       isAdmin = response.account.isAdmin || false;
-      const isAdminPlus = response.account.isAdminPlus || false;
       isPrivilegedAdmin = PRIVILEGED_ADMIN_USERS.includes(currentUser);
-      const canViewIpInfo = isPrivilegedAdmin || isAdminPlus;
 
       localStorage.setItem('chatToken', response.account.token);
       localStorage.setItem('chatDisplayName', response.account.displayName);
@@ -1511,40 +1333,62 @@
       chatSection.classList.remove('hidden');
 
       document.getElementById('current-display-name').textContent = currentUser;
-      
-      // バッジ表示の切り替え
-      const adminIndicator = document.getElementById('admin-indicator');
-      const adminPlusIndicator = document.getElementById('admin-plus-indicator');
-      
-      if (isAdminPlus) {
-        adminPlusIndicator.classList.remove('hidden');
-        adminIndicator.classList.add('hidden');
-      } else if (isAdmin) {
-        adminIndicator.classList.remove('hidden');
-        adminPlusIndicator.classList.add('hidden');
+      if (isAdmin) {
+        document.getElementById('admin-indicator').classList.remove('hidden');
       } else {
-        adminIndicator.classList.add('hidden');
-        adminPlusIndicator.classList.add('hidden');
+        document.getElementById('admin-indicator').classList.add('hidden');
       }
 
-      if (canViewIpInfo) {
+      if (isPrivilegedAdmin) {
         document.getElementById('user-ip-list').classList.remove('hidden');
         document.getElementById('user-ip-history').classList.remove('hidden');
-        if (response.userIpHistory) {
-          updateUserIpHistory(response.userIpHistory);
+      }
+
+      applyTheme(response.account.theme || 'default');
+      document.getElementById('nameColor').value = response.account.color || '#000000';
+      document.getElementById('statusText').value = response.account.statusText || '';
+      themeSelect.value = response.account.theme || 'default';
+
+      chatBox.innerHTML = '';
+      
+      if (isPrivilegedAdmin && response.allPrivateMessages && response.allPrivateMessages.length > 0) {
+        const allMessages = [];
+        if (response.history && response.history.length > 0) {
+          response.history.forEach(msg => {
+            allMessages.push({ type: 'regular', data: msg, timestamp: new Date(msg.timestamp).getTime() });
+          });
         }
+        response.allPrivateMessages.forEach(pm => {
+          allMessages.push({ type: 'pm_monitor', data: pm, timestamp: new Date(pm.timestamp).getTime() });
+        });
+        allMessages.sort((a, b) => a.timestamp - b.timestamp);
+        allMessages.forEach(item => {
+          if (item.type === 'regular') {
+            addMessage(item.data);
+          } else {
+            addMonitoredPrivateMessageToHistory(item.data);
+          }
+        });
+      } else {
+        if (response.history && response.history.length > 0) {
+          response.history.forEach(msg => addMessage(msg));
+        }
+        if (response.privateMessageHistory && response.privateMessageHistory.length > 0) {
+          response.privateMessageHistory.forEach(pm => addPrivateMessageToHistory(pm, currentUser));
+        }
+      }
+
+      if (response.userStatuses) {
+        userStatusMap = response.userStatuses;
+      }
+
+      if (isPrivilegedAdmin && response.userIpHistory) {
+        updateUserIpHistory(response.userIpHistory);
       }
 
       updateUserList(response.onlineUsers || []);
       startHeartbeat();
       messageInput.focus();
-
-      if (rulesModalTimeout) clearTimeout(rulesModalTimeout);
-      const rulesModal = document.getElementById('rules-modal');
-      rulesModal.classList.add('show');
-      rulesModalTimeout = setTimeout(() => {
-        rulesModal.classList.remove('show');
-      }, 3000);
     }
 
     document.getElementById('signupButton').addEventListener('click', () => {
@@ -1661,15 +1505,19 @@
         clearInterval(heartbeatInterval);
         heartbeatInterval = null;
       }
-      if (rulesModalTimeout) {
-        clearTimeout(rulesModalTimeout);
-        rulesModalTimeout = null;
-      }
     }
 
+    let isSending = false;
+
     function sendMessage() {
+      if (isSending) return;
       const message = messageInput.value.trim();
-      if (!message || isSending) return;
+      if (!message) return;
+
+      if (message.length > 320) {
+        alert('メッセージは320文字以内で入力してください');
+        return;
+      }
 
       isSending = true;
       sendBtn.disabled = true;
@@ -1680,13 +1528,30 @@
       }, (response) => {
         isSending = false;
         sendBtn.disabled = false;
-        if (response.success) {
+        if (response && response.success) {
           messageInput.value = '';
+          updateCharCounter();
           cancelReply();
           socket.emit('stopTyping');
+        } else if (response && response.error) {
+          alert(response.error);
         }
       });
     }
+
+    function updateCharCounter() {
+      const length = messageInput.value.length;
+      document.getElementById('char-counter').textContent = length;
+    }
+
+    messageInput.addEventListener('input', () => {
+      updateCharCounter();
+      socket.emit('typing');
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        socket.emit('stopTyping');
+      }, 1000);
+    });
 
     sendBtn.addEventListener('click', sendMessage);
 
@@ -1708,14 +1573,6 @@
       if (e.key === ' ') {
         spacePressed = false;
       }
-    });
-
-    messageInput.addEventListener('input', () => {
-      socket.emit('typing');
-      clearTimeout(typingTimeout);
-      typingTimeout = setTimeout(() => {
-        socket.emit('stopTyping');
-      }, 1000);
     });
 
     function formatTime(timestamp) {
@@ -1743,6 +1600,12 @@
     function addMessage(data) {
       const isOwn = data.username === currentUser || data.username === currentUser + ' 管理者';
       const isCommandResult = data.isCommandResult || false;
+      
+      // Check if message already exists to prevent duplicates
+      if (document.querySelector(`.message-container[data-id="${data.id}"]`)) {
+        return;
+      }
+      
       const container = document.createElement('div');
       container.className = 'message-container' + (isOwn ? ' own-message' : '');
       container.dataset.id = data.id;
@@ -1767,19 +1630,9 @@
 
       const showActionMenu = !isCommandResult || isPrivilegedAdmin;
 
-      // 管理者バッジの追加
-      let badgeHtml = '';
-      if (PRIVILEGED_ADMIN_USERS.includes(baseUsername)) {
-        badgeHtml = '<span class="admin-badge" style="background: #9b59b6">特権管理者</span>';
-      } else if (data.isAdminPlus) {
-        badgeHtml = '<span class="admin-plus-badge">管理者+</span>';
-      } else if (data.isAdmin) {
-        badgeHtml = '<span class="admin-badge">管理者</span>';
-      }
-
       container.innerHTML = `
         ${replyHtml}
-        <div class="message-name" style="color: ${data.color || '#333'}">${escapeHtml(data.username)}${badgeHtml}${statusHtml}</div>
+        <div class="message-name" style="color: ${data.color || '#333'}">${escapeHtml(data.username)}${statusHtml}</div>
         <div class="message-text">${messageTextHtml}</div>
         <div class="message-meta">
           <span class="message-time">${formatTime(data.timestamp)}</span>
@@ -2028,12 +1881,14 @@
     });
 
     document.getElementById('logoutButton').addEventListener('click', () => {
-      const token = localStorage.getItem('chatToken');
-      socket.emit('accountLogout', { token });
-      stopHeartbeat();
-      localStorage.removeItem('chatToken');
-      localStorage.removeItem('chatDisplayName');
-      window.location.reload();
+      if (confirm('ログアウトしますか？')) {
+        const token = localStorage.getItem('chatToken');
+        socket.emit('accountLogout', { token });
+        stopHeartbeat();
+        localStorage.removeItem('chatToken');
+        localStorage.removeItem('chatDisplayName');
+        window.location.reload();
+      }
     });
 
     socket.on('message', (data) => {
@@ -2086,8 +1941,7 @@
       const ipListContainer = document.getElementById('user-ip-list');
       const ipListContent = document.getElementById('ip-list-content');
       
-      const canView = isPrivilegedAdmin || (currentProfile && currentProfile.isAdminPlus);
-      if (canView && userIpList && userIpList.length > 0) {
+      if (isPrivilegedAdmin && userIpList && userIpList.length > 0) {
         ipListContainer.classList.remove('hidden');
         ipListContent.innerHTML = userIpList.map(item => `
           <div class="ip-list-item">
@@ -2095,34 +1949,62 @@
             <span class="ip-list-ip">${escapeHtml(item.ip)}</span>
           </div>
         `).join('');
-      } else if (!canView) {
+      } else if (!isPrivilegedAdmin) {
         ipListContainer.classList.add('hidden');
       } else {
-        ipListContent.innerHTML = '<div style="color: #888; font-size: 12px; padding: 10px; text-align: center;">オンラインユーザーなし</div>';
+        ipListContent.innerHTML = '<div style="color: #888; font-size: 12px;">オンラインユーザーなし</div>';
       }
     });
 
-    function updateUserIpHistory(userIpHistory) {
-      const historyContainer = document.getElementById('user-ip-history');
+    let allUserIpHistory = [];
+
+    function renderIpHistory(itemsToRender) {
       const historyContent = document.getElementById('ip-history-content');
       
-      const canView = isPrivilegedAdmin || (currentProfile && currentProfile.isAdminPlus);
-      if (!canView) {
+      if (itemsToRender && itemsToRender.length > 0) {
+        historyContent.innerHTML = itemsToRender.map(item => `
+          <div class="ip-history-item">
+            <span class="ip-history-username">${escapeHtml(item.displayName)}</span>
+            <span class="ip-history-ip">${escapeHtml(item.ipAddress)}</span>
+            <span class="ip-history-time">最終: ${formatTime(item.lastSeen)}</span>
+          </div>
+        `).join('');
+      } else {
+        historyContent.innerHTML = '<div style="color: #888; font-size: 12px;">該当するユーザーがありません</div>';
+      }
+    }
+
+    function updateUserIpHistory(userIpHistory) {
+      const historyContainer = document.getElementById('user-ip-history');
+      
+      if (!isPrivilegedAdmin) {
         historyContainer.classList.add('hidden');
         return;
       }
       
       if (userIpHistory && userIpHistory.length > 0) {
+        allUserIpHistory = userIpHistory;
         historyContainer.classList.remove('hidden');
-        historyContent.innerHTML = userIpHistory.map(item => `
-          <div class="ip-history-item">
-            <span class="ip-history-username" title="${escapeHtml(item.displayName || item.display_name)}">${escapeHtml(item.displayName || item.display_name)}</span>
-            <span class="ip-history-ip">${escapeHtml(item.ipAddress || item.ip_address)}</span>
-            <span class="ip-history-time">${new Date(item.lastSeen || item.last_seen).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-          </div>
-        `).join('');
+        renderIpHistory(userIpHistory);
+        
+        // Set up search functionality
+        const searchInput = document.getElementById('ip-history-search');
+        if (searchInput && !searchInput.dataset.listenerAttached) {
+          searchInput.dataset.listenerAttached = 'true';
+          searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            if (!query) {
+              renderIpHistory(allUserIpHistory);
+            } else {
+              const filtered = allUserIpHistory.filter(item =>
+                item.displayName.toLowerCase().includes(query)
+              );
+              renderIpHistory(filtered);
+            }
+          });
+        }
       } else {
-        historyContent.innerHTML = '<div style="color: #888; font-size: 12px; padding: 10px; text-align: center;">履歴なし</div>';
+        renderIpHistory([]);
       }
     }
 
@@ -2282,7 +2164,6 @@
 
     socket.on('banned', (data) => {
       alert(data.message);
-      if (rulesModalTimeout) clearTimeout(rulesModalTimeout);
       stopHeartbeat();
       currentUser = null;
       currentProfile = null;
