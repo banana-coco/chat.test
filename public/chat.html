@@ -1767,9 +1767,19 @@
 
       const showActionMenu = !isCommandResult || isPrivilegedAdmin;
 
+      // 管理者バッジの追加
+      let badgeHtml = '';
+      if (PRIVILEGED_ADMIN_USERS.includes(baseUsername)) {
+        badgeHtml = '<span class="admin-badge" style="background: #9b59b6">特権管理者</span>';
+      } else if (data.isAdminPlus) {
+        badgeHtml = '<span class="admin-plus-badge">管理者+</span>';
+      } else if (data.isAdmin) {
+        badgeHtml = '<span class="admin-badge">管理者</span>';
+      }
+
       container.innerHTML = `
         ${replyHtml}
-        <div class="message-name" style="color: ${data.color || '#333'}">${escapeHtml(data.username)}${statusHtml}</div>
+        <div class="message-name" style="color: ${data.color || '#333'}">${escapeHtml(data.username)}${badgeHtml}${statusHtml}</div>
         <div class="message-text">${messageTextHtml}</div>
         <div class="message-meta">
           <span class="message-time">${formatTime(data.timestamp)}</span>
