@@ -23,10 +23,6 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.get('/chat', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'chat.html'));
 });
 
@@ -49,7 +45,6 @@ let messages = [];
 const onlineUsers = new Map();
 const userSockets = new Map();
 const adminUsers = new Set();
-const adminPlusUsers = new Set();
 const mutedUsers = new Map();
 const bannedUsers = new Set();
 const userStatusMap = new Map();
@@ -138,20 +133,6 @@ async function processCommand(command, username, socket, isAdmin) {
       io.emit('allMessagesDeleted');
       return { type: 'system', message: '管理者がすべてのメッセージを削除しました' };
 
-    case '/clear':
-      const isAllAdmin = isAdmin || adminPlusUsers.has(socket.id);
-      if (!isAllAdmin) {
-        return { type: 'error', message: 'このコマンドは管理者専用です' };
-      }
-      messages = [];
-      io.emit('allMessagesDeleted');
-      return { type: 'system', message: '管理者が表示上のメッセージをクリアしました（履歴は保持されます）' };
-
-    case '/deletemessage':
-      // This is a special internal case handled by the socket.on('deleteMessage') event
-      // but we keep it here if needed for direct command use (though normally not used this way)
-      return null;
-
     case '/mute':
       if (!isAdmin) {
         return { type: 'error', message: 'このコマンドは管理者専用です' };
@@ -171,7 +152,7 @@ async function processCommand(command, username, socket, isAdmin) {
       let isMuteTargetAdmin = false;
       if (muteTargetSocketSet) {
         for (const sid of muteTargetSocketSet) {
-          if (adminUsers.has(sid) || adminPlusUsers.has(sid)) {
+          if (adminUsers.has(sid)) {
             isMuteTargetAdmin = true;
             break;
           }
@@ -180,7 +161,6 @@ async function processCommand(command, username, socket, isAdmin) {
       if (isMuteTargetAdmin && !db.ADMIN_USERS.includes(username)) {
         return { type: 'error', message: '管理者をミュートすることはできません' };
       }
-
       mutedUsers.set(targetUser, { until: Date.now() + muteTime * 1000 });
       return { type: 'system', message: `${targetUser} を ${muteTime}秒間ミュートしました` };
 
@@ -213,7 +193,7 @@ async function processCommand(command, username, socket, isAdmin) {
       const banUserSocketSet = userSockets.get(banTarget);
       let isTargetAdmin = false;
       for (const sid of banUserSocketSet) {
-        if (adminUsers.has(sid) || adminPlusUsers.has(sid)) {
+        if (adminUsers.has(sid)) {
           isTargetAdmin = true;
           break;
         }
@@ -232,7 +212,6 @@ async function processCommand(command, username, socket, isAdmin) {
         }
         onlineUsers.delete(sid);
         adminUsers.delete(sid);
-        adminPlusUsers.delete(sid);
       }
       userSockets.delete(banTarget);
       userStatusMap.delete(banTarget);
@@ -261,8 +240,8 @@ async function processCommand(command, username, socket, isAdmin) {
 
     case '/ipバン':
     case '/ipban':
-      if (!db.ADMIN_USERS.includes(username) && !adminPlusUsers.has(socket.id)) {
-        return { type: 'error', message: 'このコマンドは特権管理者または管理者+専用です' };
+      if (!db.ADMIN_USERS.includes(username)) {
+        return { type: 'error', message: 'このコマンドは特権管理者専用です' };
       }
       if (args.length < 1) {
         return { type: 'error', message: '使用方法: /ipban ユーザー名 または /ipban IPアドレス' };
@@ -275,19 +254,8 @@ async function processCommand(command, username, socket, isAdmin) {
         let affectedUser = null;
         for (const [userName, ip] of userIpMap) {
           if (ip === directIp) {
-            // 特権管理者、管理者、管理者+ の保護
-            const targetSockets = userSockets.get(userName);
-            let isProtected = db.ADMIN_USERS.includes(userName);
-            if (targetSockets) {
-              for (const sid of targetSockets) {
-                if (adminUsers.has(sid) || adminPlusUsers.has(sid)) {
-                  isProtected = true;
-                  break;
-                }
-              }
-            }
-            if (isProtected) {
-              return { type: 'error', message: '管理者以上の権限を持つユーザーのIPをバンすることはできません' };
+            if (db.ADMIN_USERS.includes(userName)) {
+              return { type: 'error', message: '特権管理者のIPをバンすることはできません' };
             }
             affectedUser = userName;
             break;
@@ -306,7 +274,6 @@ async function processCommand(command, username, socket, isAdmin) {
             }
             onlineUsers.delete(sid);
             adminUsers.delete(sid);
-            adminPlusUsers.delete(sid);
           }
           userSockets.delete(affectedUser);
           userStatusMap.delete(affectedUser);
@@ -327,22 +294,9 @@ async function processCommand(command, username, socket, isAdmin) {
       if (!targetIp) {
         return { type: 'error', message: 'そのユーザーのIPが見つかりません（オンラインでないか、IPが取得できていません）' };
       }
-      
-      // 特権管理者、管理者、管理者+ の保護
-      const targetSocketSet = userSockets.get(ipBanTarget);
-      let isTargetProtected = db.ADMIN_USERS.includes(ipBanTarget);
-      if (targetSocketSet) {
-        for (const sid of targetSocketSet) {
-          if (adminUsers.has(sid) || adminPlusUsers.has(sid)) {
-            isTargetProtected = true;
-            break;
-          }
-        }
+      if (db.ADMIN_USERS.includes(ipBanTarget)) {
+        return { type: 'error', message: '特権管理者をIPバンすることはできません' };
       }
-      if (isTargetProtected) {
-        return { type: 'error', message: '管理者以上の権限を持つユーザーをIPバンすることはできません' };
-      }
-
       await db.addIpBan(targetIp, username, `${ipBanTarget}をIPバン`);
       
       if (userSockets.has(ipBanTarget)) {
@@ -355,7 +309,6 @@ async function processCommand(command, username, socket, isAdmin) {
           }
           onlineUsers.delete(sid);
           adminUsers.delete(sid);
-          adminPlusUsers.delete(sid);
         }
         userSockets.delete(ipBanTarget);
         userStatusMap.delete(ipBanTarget);
@@ -391,22 +344,12 @@ async function processCommand(command, username, socket, isAdmin) {
       if (!db.ADMIN_USERS.includes(username)) {
         return { type: 'error', message: 'このコマンドは特権管理者専用です' };
       }
-      const ipBanListData = await db.getAllIpBans();
-      if (ipBanListData.length === 0) {
+      const ipBanList = await db.getAllIpBans();
+      if (ipBanList.length === 0) {
         return { type: 'system', message: 'IPバンリストは空です' };
       }
-      const ipBanListStrFormatted = ipBanListData.map(ban => `${ban.ip_address} (理由: ${ban.reason}, by: ${ban.banned_by})`).join('\n');
-      return { type: 'system', message: `【IPバンリスト】\n${ipBanListStrFormatted}` };
-
-    case '/banlist':
-      if (!db.ADMIN_USERS.includes(username)) {
-        return { type: 'error', message: 'このコマンドは特権管理者専用です' };
-      }
-      const banList = Array.from(bannedUsers);
-      const ipBans = await db.getAllIpBans();
-      const banListStr = banList.length > 0 ? banList.join(', ') : 'なし';
-      const ipBanListStrSummary = ipBans.length > 0 ? ipBans.map(b => `${b.ip_address} (by ${b.banned_by})`).join('\n') : 'なし';
-      return { type: 'system', message: `【BANリスト】\nユーザーBAN: ${banListStr}\n\n【IPバンリスト】\n${ipBanListStrSummary}` };
+      const ipBanListStr = ipBanList.map(ban => `${ban.ip_address} (理由: ${ban.reason}, by: ${ban.banned_by})`).join('\n');
+      return { type: 'system', message: `【IPバンリスト】\n${ipBanListStr}` };
 
     case '/prm':
       if (args.length < 2) {
@@ -556,28 +499,34 @@ function broadcastUserIpList() {
     userIpList.push({ username, ip });
   }
   
-  io.sockets.sockets.forEach((socketObj) => {
-    const isPrivilegedAdmin = db.ADMIN_USERS.includes(onlineUsers.get(socketObj.id));
-    const isAdminPlus = adminPlusUsers.has(socketObj.id);
-    
-    if (isPrivilegedAdmin || isAdminPlus) {
-      socketObj.emit('userIpList', userIpList);
+  for (const adminName of db.ADMIN_USERS) {
+    if (userSockets.has(adminName)) {
+      const adminSocketSet = userSockets.get(adminName);
+      for (const sid of adminSocketSet) {
+        const adminSocketObj = io.sockets.sockets.get(sid);
+        if (adminSocketObj) {
+          adminSocketObj.emit('userIpList', userIpList);
+        }
+      }
     }
-  });
+  }
 }
 
 async function broadcastUserIpHistory() {
   try {
     const userIpHistory = await db.getAllUserIpHistory();
     
-    io.sockets.sockets.forEach((socketObj) => {
-      const isPrivilegedAdmin = db.ADMIN_USERS.includes(onlineUsers.get(socketObj.id));
-      const isAdminPlus = adminPlusUsers.has(socketObj.id);
-      
-      if (isPrivilegedAdmin || isAdminPlus) {
-        socketObj.emit('userIpHistory', userIpHistory);
+    for (const adminName of db.ADMIN_USERS) {
+      if (userSockets.has(adminName)) {
+        const adminSocketSet = userSockets.get(adminName);
+        for (const sid of adminSocketSet) {
+          const adminSocketObj = io.sockets.sockets.get(sid);
+          if (adminSocketObj) {
+            adminSocketObj.emit('userIpHistory', userIpHistory);
+          }
+        }
       }
-    });
+    }
   } catch (error) {
     console.error('Error broadcasting user IP history:', error.message);
   }
@@ -657,16 +606,7 @@ io.on('connection', (socket) => {
       }
 
       if (adminLogin) {
-        if (adminPassword === db.ADMIN_PLUS_PASSWORD) {
-          // 管理者+ としてログイン
-          console.log(`[Login] ${username} logged in as Admin+`);
-          adminPlusUsers.add(socket.id);
-          adminUsers.add(socket.id); // 管理者+は一般管理者の権限も持つ
-        } else if (adminPassword === db.EXTRA_ADMIN_PASSWORD) {
-          // 特権管理者としてログイン
-          console.log(`[Login] ${username} logged in as Privileged Admin`);
-          adminUsers.add(socket.id);
-        } else {
+        if (!adminPassword || adminPassword !== db.EXTRA_ADMIN_PASSWORD) {
           return callback({ success: false, error: '管理者パスワードが正しくありません' });
         }
       }
@@ -681,15 +621,11 @@ io.on('connection', (socket) => {
       }
 
       const grantAdminByPassword = adminLogin && adminPassword === db.EXTRA_ADMIN_PASSWORD;
-      const grantAdminPlusByPassword = adminLogin && adminPassword === db.ADMIN_PLUS_PASSWORD;
 
       currentUser = result.account.displayName;
       currentAccount = result.account;
       if (grantAdminByPassword) {
         currentAccount.isAdmin = true;
-      }
-      if (grantAdminPlusByPassword) {
-        currentAccount.isAdminPlus = true;
       }
       onlineUsers.set(socket.id, currentUser);
       userIpMap.set(currentUser, clientIp);
@@ -701,9 +637,6 @@ io.on('connection', (socket) => {
 
       if (result.account.isAdmin || grantAdminByPassword) {
         adminUsers.add(socket.id);
-      }
-      if (grantAdminPlusByPassword) {
-        adminPlusUsers.add(socket.id);
       }
 
       if (result.account.statusText) {
@@ -734,35 +667,26 @@ io.on('connection', (socket) => {
       let allPrivateMessagesForAdmin = [];
       let userIpHistory = [];
       const isAdminUser = result.account.isAdmin || grantAdminByPassword;
-      const isAdminPlusUser = grantAdminPlusByPassword;
       const canMonitorPM = db.ADMIN_USERS.includes(currentUser);
-      const canViewIpInfo = canMonitorPM || isAdminPlusUser;
-
-      if (canViewIpInfo) {
+      if (canMonitorPM) {
         try {
           allPrivateMessagesForAdmin = await db.getAllPrivateMessages();
           userIpHistory = await db.getAllUserIpHistory();
         } catch (adminPmError) {
-          console.error('Error fetching data for privileged user:', adminPmError.message);
+          console.error('Error fetching all private messages for admin:', adminPmError.message);
         }
       }
-
-      console.log(`[IP History Debug] User: ${currentUser}, canViewIpInfo: ${canViewIpInfo}, count: ${userIpHistory.length}`);
 
       const uniqueOnlineUsers = getUniqueOnlineUsers();
       console.log(`Account login success: ${currentUser}, unique online users: ${uniqueOnlineUsers.length}`);
 
       callback({
         success: true,
-        account: {
-          ...currentAccount,
-          isAdmin: currentAccount.isAdmin,
-          isAdminPlus: currentAccount.isAdminPlus
-        },
+        account: currentAccount,
         history: currentMessages,
         privateMessageHistory: privateMessages,
         allPrivateMessages: canMonitorPM ? allPrivateMessagesForAdmin : null,
-        userIpHistory: canViewIpInfo ? userIpHistory : null,
+        userIpHistory: canMonitorPM ? userIpHistory : null,
         onlineUsers: uniqueOnlineUsers,
         userStatuses: getUserStatuses()
       });
@@ -1033,10 +957,7 @@ io.on('connection', (socket) => {
         statusText: statusText
       };
 
-      console.log(`[Message Debug] Attempting to save message from ${displayName}: ${data.message.substring(0, 20)}...`);
-      const saved = await addMessageToStorage(messageData);
-      console.log(`[Message Debug] Save result: ${saved ? 'Success' : 'Failed'}`);
-      
+      await addMessageToStorage(messageData);
       io.emit('message', messageData);
       callback({ success: true, id: messageData.id });
     } catch (error) {
@@ -1085,7 +1006,7 @@ io.on('connection', (socket) => {
     
     const privateMsg = await db.getPrivateMessageById(id);
     if (privateMsg) {
-      const pmResult = await db.deletePrivateMessage(id, isPrivilegedAdmin, currentUser);
+      const pmResult = await db.deletePrivateMessage(id, isPrivilegedAdmin);
       if (!pmResult.success) {
         return callback({ success: false, error: pmResult.error || 'プライベートメッセージの削除権限がありません' });
       }
@@ -1147,7 +1068,7 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 5000;
-const isProduction = process.env.RENDER === 'true' || process.env.NODE_ENV === 'production';
+
 
 async function startServer() {
   const dbConnected = await db.initDatabase();
@@ -1166,7 +1087,7 @@ async function startServer() {
 
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
-    console.log(`Environment: ${isProduction ? 'production' : 'development'}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`Storage: ${db.isUsingDatabase() ? 'PostgreSQL' : 'Not connected'}`);
   });
 }
