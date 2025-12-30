@@ -301,7 +301,7 @@ async function renameUser(oldUsername, newUsername) {
 }
 
 async function getMessages(limit = MAX_HISTORY) {
-  if (!useDatabase) return null;
+  if (!this.useDatabase) return null;
 
   try {
     const result = await pool.query(
