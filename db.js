@@ -301,11 +301,11 @@ async function renameUser(oldUsername, newUsername) {
 }
 
 async function getMessages(limit = MAX_HISTORY) {
-  if (!this.useDatabase) return null;
+  if (!useDatabase) return null;
 
   try {
     const result = await pool.query(
-      'SELECT * FROM (SELECT * FROM messages ORDER BY timestamp DESC LIMIT $1) AS recent_messages ORDER BY timestamp ASC',
+      'SELECT * FROM messages ORDER BY timestamp ASC LIMIT $1',
       [limit]
     );
 
