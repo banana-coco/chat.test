@@ -139,7 +139,8 @@ async function processCommand(command, username, socket, isAdmin) {
       return { type: 'system', message: '管理者がすべてのメッセージを削除しました' };
 
     case '/clear':
-      if (!isAdmin) {
+      const isAllAdmin = isAdmin || adminPlusUsers.has(socket.id);
+      if (!isAllAdmin) {
         return { type: 'error', message: 'このコマンドは管理者専用です' };
       }
       messages = [];
@@ -658,8 +659,13 @@ io.on('connection', (socket) => {
       if (adminLogin) {
         if (adminPassword === db.ADMIN_PLUS_PASSWORD) {
           // 管理者+ としてログイン
+          console.log(`[Login] ${username} logged in as Admin+`);
+          adminPlusUsers.add(socket.id);
+          adminUsers.add(socket.id); // 管理者+は一般管理者の権限も持つ
         } else if (adminPassword === db.EXTRA_ADMIN_PASSWORD) {
-          // 通常の管理者としてログイン
+          // 特権管理者としてログイン
+          console.log(`[Login] ${username} logged in as Privileged Admin`);
+          adminUsers.add(socket.id);
         } else {
           return callback({ success: false, error: '管理者パスワードが正しくありません' });
         }
