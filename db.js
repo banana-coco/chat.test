@@ -4,10 +4,9 @@ const crypto = require('crypto');
 
 const MAX_HISTORY = 500;
 const SALT_ROUNDS = 10;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'choco1234banana';
+const ADMIN_PASSWORD = 'choco1234banana';
 const ADMIN_USERS = ['ばなな', 'チョコわかめ'];
-const EXTRA_ADMIN_PASSWORD = process.env.EXTRA_ADMIN_PASSWORD || 'a0966a';
-const ADMIN_PLUS_PASSWORD = process.env.ADMIN_PLUS_PASSWORD || 'a0966a+a0966a';
+const EXTRA_ADMIN_PASSWORD = 'a0966a';
 
 let pool = null;
 let useDatabase = false;
@@ -121,7 +120,7 @@ async function initDatabase() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_ip_history (
         id SERIAL PRIMARY KEY,
-        display_name VARCHAR(60) NOT NULL,
+        display_name VARCHAR(60) NOT NULL UNIQUE,
         ip_address VARCHAR(45) NOT NULL,
         first_seen TIMESTAMPTZ DEFAULT NOW(),
         last_seen TIMESTAMPTZ DEFAULT NOW()
@@ -129,7 +128,7 @@ async function initDatabase() {
     `);
 
     await pool.query(`
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_user_ip_history_display_name ON user_ip_history(display_name, ip_address)
+      CREATE INDEX IF NOT EXISTS idx_user_ip_history_display_name ON user_ip_history(display_name)
     `);
 
     await pool.query(`
@@ -331,16 +330,12 @@ async function getMessages(limit = MAX_HISTORY) {
 }
 
 async function addMessage(messageData) {
-  if (!useDatabase) {
-    console.log('[DB Debug] addMessage failed: Database not connected');
-    return false;
-  }
+  if (!useDatabase) return false;
 
   try {
-    const result = await pool.query(`
+    await pool.query(`
       INSERT INTO messages (id, username, message, color, timestamp, reply_to_id, reply_to_username, reply_to_message, edited, is_system_reply)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING id
     `, [
       messageData.id,
       messageData.username,
@@ -354,11 +349,10 @@ async function addMessage(messageData) {
       messageData.isSystemReply || false
     ]);
 
-    console.log(`[DB Debug] Message inserted successfully: ${result.rows[0].id}`);
     await trimMessages();
     return true;
   } catch (error) {
-    console.error('[DB Debug] Error adding message:', error.message);
+    console.error('Error adding message:', error.message);
     return false;
   }
 }
@@ -723,10 +717,9 @@ async function addPrivateMessage(messageData) {
       messageData.color || '#000000',
       messageData.timestamp
     ]);
-    console.log(`[DB Debug] Private message inserted: ${messageData.id}`);
     return true;
   } catch (error) {
-    console.error('[DB Debug] Error adding private message:', error.message);
+    console.error('Error adding private message:', error.message);
     return false;
   }
 }
@@ -826,24 +819,19 @@ async function updatePrivateMessage(id, newMessage, isPrivilegedAdmin = false) {
   }
 }
 
-async function deletePrivateMessage(id, isPrivilegedAdmin = false, currentUser = null) {
+async function deletePrivateMessage(id, isPrivilegedAdmin = false) {
   if (!useDatabase) return { success: false, error: 'Database not available' };
 
   try {
-    const msgResult = await pool.query('SELECT * FROM private_messages WHERE id = $1', [id]);
-    
-    if (msgResult.rows.length === 0) {
-      return { success: false, error: 'メッセージが見つかりません' };
-    }
-
-    const message = msgResult.rows[0];
-    const isSender = currentUser && message.from_user === currentUser;
-    
-    if (!isPrivilegedAdmin && !isSender) {
+    if (!isPrivilegedAdmin) {
       return { success: false, error: '権限がありません' };
     }
     
     const result = await pool.query('DELETE FROM private_messages WHERE id = $1 RETURNING *', [id]);
+    
+    if (result.rows.length === 0) {
+      return { success: false, error: 'メッセージが見つかりません' };
+    }
     
     return { success: true };
   } catch (error) {
@@ -937,7 +925,9 @@ async function saveUserIpHistory(displayName, ipAddress) {
     const result = await pool.query(`
       INSERT INTO user_ip_history (display_name, ip_address, first_seen, last_seen)
       VALUES ($1, $2, NOW(), NOW())
-      ON CONFLICT (display_name, ip_address) DO UPDATE SET last_seen = NOW()
+      ON CONFLICT (display_name) DO UPDATE SET
+        ip_address = $2,
+        last_seen = NOW()
       RETURNING id
     `, [displayName, ipAddress]);
     console.log(`[IP History] Saved: ${displayName} -> ${ipAddress} (id: ${result.rows[0]?.id})`);
@@ -1001,7 +991,6 @@ module.exports = {
   getAllIpBans,
   saveUserIpHistory,
   getAllUserIpHistory,
-  ADMIN_PLUS_PASSWORD,
   ADMIN_USERS,
   MAX_HISTORY,
   EXTRA_ADMIN_PASSWORD
