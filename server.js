@@ -516,13 +516,19 @@ async function broadcastUserIpHistory() {
   try {
     const userIpHistory = await db.getAllUserIpHistory();
     
+    // メモリ上のBANリストをマッピング
+    const enrichedHistory = userIpHistory.map(item => ({
+      ...item,
+      isBanned: bannedUsers.has(item.displayName)
+    }));
+    
     for (const adminName of db.ADMIN_USERS) {
       if (userSockets.has(adminName)) {
         const adminSocketSet = userSockets.get(adminName);
         for (const sid of adminSocketSet) {
           const adminSocketObj = io.sockets.sockets.get(sid);
           if (adminSocketObj) {
-            adminSocketObj.emit('userIpHistory', userIpHistory);
+            adminSocketObj.emit('userIpHistory', enrichedHistory);
           }
         }
       }
