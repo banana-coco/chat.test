@@ -44,6 +44,7 @@ let users = {};
 let messages = [];
 const onlineUsers = new Map();
 const userSockets = new Map();
+const awayUsers = new Set();
 const adminUsers = new Set();
 const mutedUsers = new Map();
 const bannedUsers = new Set();
@@ -132,6 +133,17 @@ async function processCommand(command, username, socket, isAdmin) {
       await db.deleteAllMessages();
       io.emit('allMessagesDeleted');
       return { type: 'system', message: '管理者がすべてのメッセージを削除しました' };
+
+    case '/prmdelete':
+      if (!isAdmin) {
+        return { type: 'error', message: 'このコマンドは管理者専用です' };
+      }
+      const prmDeleteResult = await db.deleteAllPrivateMessages();
+      if (prmDeleteResult) {
+        io.emit('allPrivateMessagesDeleted'); // クライアント側で受信して表示をクリアするため
+        return { type: 'system', message: '管理者がすべてのプライベートメッセージを削除しました' };
+      }
+      return { type: 'error', message: 'プライベートメッセージの削除に失敗しました' };
 
     case '/mute':
       if (!isAdmin) {
@@ -240,7 +252,10 @@ async function processCommand(command, username, socket, isAdmin) {
 
     case '/ipバン':
     case '/ipban':
-      if (!db.ADMIN_USERS.includes(username)) {
+      const isTopAdmin = db.ADMIN_USERS.includes(username);
+      const isPrivileged = await db.isPrivilegedAdmin(username);
+      
+      if (!isPrivileged) {
         return { type: 'error', message: 'このコマンドは特権管理者専用です' };
       }
       if (args.length < 1) {
@@ -254,8 +269,14 @@ async function processCommand(command, username, socket, isAdmin) {
         let affectedUser = null;
         for (const [userName, ip] of userIpMap) {
           if (ip === directIp) {
-            if (db.ADMIN_USERS.includes(userName)) {
-              return { type: 'error', message: '特権管理者のIPをバンすることはできません' };
+            // 最上位管理者は誰でもBAN可能、それ以外の特権管理者は管理者・特権管理者をBAN不可
+            const targetIsAdmin = db.ADMIN_USERS.includes(userName) || await db.isPrivilegedAdmin(userName);
+            if (!isTopAdmin && targetIsAdmin) {
+              return { type: 'error', message: '管理者のIPをバンする権限がありません' };
+            }
+            if (isTopAdmin && db.ADMIN_USERS.includes(userName)) {
+                // 最上位管理者同士のBANは防ぐ（必要に応じて）
+                // return { type: 'error', message: '最上位管理者のIPをバンすることはできません' };
             }
             affectedUser = userName;
             break;
@@ -294,9 +315,16 @@ async function processCommand(command, username, socket, isAdmin) {
       if (!targetIp) {
         return { type: 'error', message: 'そのユーザーのIPが見つかりません（オンラインでないか、IPが取得できていません）' };
       }
-      if (db.ADMIN_USERS.includes(ipBanTarget)) {
-        return { type: 'error', message: '特権管理者をIPバンすることはできません' };
+
+      // ターゲットの権限チェック
+      const targetIsAdmin = db.ADMIN_USERS.includes(ipBanTarget) || await db.isPrivilegedAdmin(ipBanTarget);
+      if (!isTopAdmin && targetIsAdmin) {
+        return { type: 'error', message: '管理者をIPバンする権限がありません' };
       }
+      if (isTopAdmin && db.ADMIN_USERS.includes(ipBanTarget)) {
+        return { type: 'error', message: '最上位管理者をIPバンすることはできません' };
+      }
+
       await db.addIpBan(targetIp, username, `${ipBanTarget}をIPバン`);
       
       if (userSockets.has(ipBanTarget)) {
@@ -326,22 +354,50 @@ async function processCommand(command, username, socket, isAdmin) {
 
     case '/ipバン解除':
     case '/ipunban':
-      if (!db.ADMIN_USERS.includes(username)) {
-        return { type: 'error', message: 'このコマンドは特権管理者専用です' };
-      }
+      const isTopAdminForUnban = db.ADMIN_USERS.includes(username);
       if (args.length < 1) {
         return { type: 'error', message: '使用方法: /IPバン解除 IPアドレス' };
       }
       const ipToUnban = args[0];
+      
+      if (!isTopAdminForUnban) {
+        if (await db.isPrivilegedAdmin(username)) {
+          // 自分がBANしたかどうかをチェック
+          const banInfo = await db.getIpBanInfo(ipToUnban);
+          if (!banInfo) {
+            return { type: 'error', message: 'そのIPアドレスはIPバンされていません' };
+          }
+          if (banInfo.banned_by !== username) {
+            return { type: 'error', message: '自分がBANしたIPのみ解除することができます' };
+          }
+        } else {
+          return { type: 'error', message: 'このコマンドは特権管理者専用です' };
+        }
+      }
+      
       const ipUnbanResult = await db.removeIpBan(ipToUnban);
       if (ipUnbanResult) {
         return { type: 'system', message: `${ipToUnban} のIPバンを解除しました` };
       }
       return { type: 'error', message: 'そのIPアドレスはIPバンされていません' };
 
+    case '/ipban追加':
+      if (!db.ADMIN_USERS.includes(username)) {
+        return { type: 'error', message: 'このコマンドは最上位管理者専用です' };
+      }
+      if (args.length < 1) {
+        return { type: 'error', message: '使用方法: /ipban追加 ユーザー名' };
+      }
+      const newPrivilegedAdmin = args[0];
+      const addAdminResult = await db.addPrivilegedAdmin(newPrivilegedAdmin, username);
+      if (addAdminResult) {
+        return { type: 'system', message: `${newPrivilegedAdmin} を特権管理者に指定しました。ipbanコマンドが使用可能になります。` };
+      }
+      return { type: 'error', message: '特権管理者の追加に失敗しました。' };
+
     case '/ipバンリスト':
     case '/ipbanlist':
-      if (!db.ADMIN_USERS.includes(username)) {
+      if (!(await db.isPrivilegedAdmin(username))) {
         return { type: 'error', message: 'このコマンドは特権管理者専用です' };
       }
       const ipBanList = await db.getAllIpBans();
@@ -462,10 +518,14 @@ async function processCommand(command, username, socket, isAdmin) {
 /color #カラーコード - 名前の色を変更
 /dice - サイコロを振る
 /coin - コインを投げる
-/prm ユーザー名 内容 - プライベートメッセージを送る
+/ipban ユーザー名 または /ipban IPアドレス - IPバンする
+/ipban追加 ユーザー名 - 特権管理者を追加する
 /help - このヘルプを表示`;
       if (isAdmin) {
         helpMessage += `\n\n【管理者専用】\n/delete - 全メッセージを削除\n/mute ユーザー名 時間 - ユーザーをミュート\n/unmute ユーザー名 - ミュート解除\n/ban ユーザー名 - チャットから追い出す\n/unban ユーザー名 - BAN解除`;
+        if (await db.isPrivilegedAdmin(username)) {
+          helpMessage += `\n/ipban ユーザー名 - IPバン\n/ipunban IPアドレス - 自分がBANしたIPの解除\n/ipbanlist - IPバンリスト表示`;
+        }
       }
       return {
         type: 'system',
@@ -516,19 +576,13 @@ async function broadcastUserIpHistory() {
   try {
     const userIpHistory = await db.getAllUserIpHistory();
     
-    // メモリ上のBANリストをマッピング
-    const enrichedHistory = userIpHistory.map(item => ({
-      ...item,
-      isBanned: bannedUsers.has(item.displayName)
-    }));
-    
     for (const adminName of db.ADMIN_USERS) {
       if (userSockets.has(adminName)) {
         const adminSocketSet = userSockets.get(adminName);
         for (const sid of adminSocketSet) {
           const adminSocketObj = io.sockets.sockets.get(sid);
           if (adminSocketObj) {
-            adminSocketObj.emit('userIpHistory', enrichedHistory);
+            adminSocketObj.emit('userIpHistory', userIpHistory);
           }
         }
       }
@@ -805,6 +859,7 @@ io.on('connection', (socket) => {
         allPrivateMessages: canMonitorPM ? allPrivateMessagesForAdmin : null,
         userIpHistory: canMonitorPM ? userIpHistory : null,
         onlineUsers: uniqueOnlineUsers,
+        awayUsers: Array.from(awayUsers),
         userStatuses: getUserStatuses()
       });
 
@@ -829,6 +884,7 @@ io.on('connection', (socket) => {
       await db.logout(token);
     }
     if (currentUser) {
+      awayUsers.delete(currentUser);
       const userName = currentUser;
       onlineUsers.delete(socket.id);
       adminUsers.delete(socket.id);
@@ -860,6 +916,16 @@ io.on('connection', (socket) => {
     }
 
     try {
+      if (data.isAway !== undefined) {
+        if (data.isAway) {
+          awayUsers.add(currentUser);
+        } else {
+          awayUsers.delete(currentUser);
+        }
+        io.emit('awayUpdate', { username: currentUser, isAway: data.isAway });
+        return callback({ success: true, isAway: data.isAway });
+      }
+
       const result = await db.updateAccountProfile(currentUser, {
         color: data.color,
         theme: data.theme,
@@ -898,6 +964,10 @@ io.on('connection', (socket) => {
     const statusText = userStatusMap.get(currentUser) || '';
 
     try {
+      if (data.message && data.message.length > 150) {
+        return callback({ success: false, error: 'メッセージは150文字以内で入力してください' });
+      }
+
       const muteCheck = checkMuted(currentUser);
       if (muteCheck.muted) {
         socket.emit('systemMessage', `あなたはミュートされています。残り${muteCheck.remaining}秒`);
@@ -960,6 +1030,7 @@ io.on('connection', (socket) => {
         replyTo: data.replyTo || null,
         edited: false,
         isAdmin: isAdmin,
+        isAway: awayUsers.has(currentUser),
         statusText: statusText
       };
 
@@ -1042,6 +1113,17 @@ io.on('connection', (socket) => {
 
   socket.on('stopTyping', () => {
     socket.broadcast.emit('userStopTyping');
+  });
+
+  socket.on('getIpBans', async (data, callback) => {
+    if (typeof callback !== 'function') return;
+    if (!(await db.isPrivilegedAdmin(currentUser))) return callback([]);
+    try {
+      const bans = await db.getAllIpBans();
+      callback(bans);
+    } catch (err) {
+      callback([]);
+    }
   });
 
   socket.on('heartbeat', () => {
