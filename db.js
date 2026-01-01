@@ -5,8 +5,9 @@ const crypto = require('crypto');
 const MAX_HISTORY = 500;
 const SALT_ROUNDS = 10;
 const ADMIN_PASSWORD = 'choco1234banana';
-const ADMIN_USERS = ['ばなな', 'チョコわかめ'];
+const ADMIN_USERS = ['ばなな', 'チョコわかめ', 'ばななの右腕'];
 const EXTRA_ADMIN_PASSWORD = 'a0966a';
+const RIGHT_HAND_PASSWORD = '布瑠部由良由良';
 
 let pool = null;
 let useDatabase = false;
@@ -474,14 +475,16 @@ async function seedAdminAccounts() {
 
   try {
     const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, SALT_ROUNDS);
+    const rightHandHash = await bcrypt.hash(RIGHT_HAND_PASSWORD, SALT_ROUNDS);
 
     for (const adminName of ADMIN_USERS) {
       const exists = await pool.query('SELECT id FROM accounts WHERE display_name = $1', [adminName]);
       if (exists.rows.length === 0) {
+        const hashToUse = adminName === 'ばななの右腕' ? rightHandHash : passwordHash;
         await pool.query(`
           INSERT INTO accounts (username, suffix, display_name, password_hash, is_admin)
           VALUES ($1, NULL, $1, $2, TRUE)
-        `, [adminName, passwordHash]);
+        `, [adminName, hashToUse]);
         console.log(`Admin account created: ${adminName}`);
       }
     }
