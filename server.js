@@ -133,6 +133,14 @@ async function processCommand(command, username, socket, isAdmin) {
       io.emit('allMessagesDeleted');
       return { type: 'system', message: '管理者がすべてのメッセージを削除しました' };
 
+    case '/prmdelete':
+      if (!isAdmin) {
+        return { type: 'error', message: 'このコマンドは管理者専用です' };
+      }
+      await db.deleteAllPrivateMessages();
+      io.emit('allPrivateMessagesDeleted');
+      return { type: 'system', message: '管理者がすべてのプライベートメッセージを削除しました' };
+
     case '/mute':
       if (!isAdmin) {
         return { type: 'error', message: 'このコマンドは管理者専用です' };
@@ -465,7 +473,7 @@ async function processCommand(command, username, socket, isAdmin) {
 /prm ユーザー名 内容 - プライベートメッセージを送る
 /help - このヘルプを表示`;
       if (isAdmin) {
-        helpMessage += `\n\n【管理者専用】\n/delete - 全メッセージを削除\n/mute ユーザー名 時間 - ユーザーをミュート\n/unmute ユーザー名 - ミュート解除\n/ban ユーザー名 - チャットから追い出す\n/unban ユーザー名 - BAN解除`;
+        helpMessage += `\n\n【管理者専用】\n/delete - 全メッセージを削除\n/mute ユーザー名 時間 - ユーザーをミュート\n/unmute ユーザー名 - ミュート解除\n/ban ユーザー名 - チャットから追い出す\n/unban ユーザー名 - BAN解除\n/prmdelete - 全プライベートメッセージを削除`;
       }
       return {
         type: 'system',
