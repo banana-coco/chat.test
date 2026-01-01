@@ -1027,19 +1027,6 @@
         width: 100%;
       }
     }
-    .away-on {
-      background-color: #f39c12 !important;
-      color: white !important;
-    }
-    .away-off {
-      background-color: #bdc3c7 !important;
-      color: white !important;
-    }
-    .away-mark {
-      color: #f39c12;
-      font-weight: bold;
-      margin-left: 4px;
-    }
   </style>
 </head>
 <body class="theme-default">
@@ -1111,14 +1098,13 @@
     </div>
 
     <div class="input-area">
-      <textarea id="message-input" placeholder="メッセージを入力..." maxlength="150"></textarea>
+      <textarea id="message-input" placeholder="メッセージを入力..." maxlength="320"></textarea>
       <div class="input-controls">
         <div class="input-hint">Enterで送信 / Shift+Enter または Space+Enterで改行</div>
-        <div class="char-count"><span id="char-counter">0</span>/150</div>
+        <div class="char-count"><span id="char-counter">0</span>/320</div>
       </div>
       <div class="button-row">
         <button id="send-btn">送信</button>
-        <button id="away-toggle-btn" class="away-off">放置: OFF</button>
         <div class="logout-container">
           <button id="logoutButton">ログアウト</button>
         </div>
@@ -1254,8 +1240,6 @@
     let openMenuId = null;
     let userStatusMap = {};
     let spacePressed = false;
-    let isAway = false;
-    let awayUsers = [];
 
     const savedToken = localStorage.getItem('chatToken');
     if (savedToken) {
@@ -1269,37 +1253,7 @@
       });
     }
 
-    function updateAwayButton() {
-      if (isAway) {
-        awayToggleBtn.textContent = '放置: ON';
-        awayToggleBtn.className = 'away-on';
-      } else {
-        awayToggleBtn.textContent = '放置: OFF';
-        awayToggleBtn.className = 'away-off';
-      }
-    }
-
-    awayToggleBtn.addEventListener('click', () => {
-      isAway = !isAway;
-      socket.emit('updateAccountProfile', { isAway: isAway }, (response) => {
-        if (response && response.success) {
-          updateAwayButton();
-        } else {
-          isAway = !isAway; // リセット
-          alert('放置状態の更新に失敗しました');
-        }
-      });
-    });
-
-    socket.on('awayUpdate', (data) => {
-      if (data.isAway) {
-        if (!awayUsers.includes(data.username)) awayUsers.push(data.username);
-      } else {
-        awayUsers = awayUsers.filter(u => u !== data.username);
-      }
-      updateOnlineUsersList();
-      // メッセージの再描画は行わないが、今後のメッセージには反映される
-    });
+    const loginForm = document.getElementById('login-form');
     const signupForm = document.getElementById('signup-form');
     const authError = document.getElementById('auth-error');
     const authSuccess = document.getElementById('auth-success');
@@ -1308,7 +1262,6 @@
     const sendBtn = document.getElementById('send-btn');
     const userCount = document.getElementById('user-count');
     const userNames = document.getElementById('user-names');
-    const awayToggleBtn = document.getElementById('away-toggle-btn');
     const typingIndicator = document.getElementById('typing-indicator');
     const replyPreview = document.getElementById('reply-preview');
     const replyToText = document.getElementById('reply-to-text');
@@ -1399,12 +1352,6 @@
       document.getElementById('nameColor').value = response.account.color || '#000000';
       document.getElementById('statusText').value = response.account.statusText || '';
       themeSelect.value = response.account.theme || 'default';
-
-      if (response.awayUsers) {
-        awayUsers = response.awayUsers;
-        isAway = awayUsers.includes(currentUser);
-        updateAwayButton();
-      }
 
       chatBox.innerHTML = '';
       
@@ -1571,8 +1518,8 @@
       const message = messageInput.value.trim();
       if (!message) return;
 
-      if (message.length > 150) {
-        alert('メッセージは150文字以内で入力してください');
+      if (message.length > 320) {
+        alert('メッセージは320文字以内で入力してください');
         return;
       }
 
@@ -1673,7 +1620,6 @@
       }
 
       const editedMark = data.edited ? '<span class="edited-mark">(編集済み)</span>' : '';
-      const awayMark = data.isAway ? '<span class="away-mark">(放置中)</span>' : '';
       const escapedMessage = escapeHtml(data.message);
       const linkedMessage = linkifyUrls(escapedMessage);
       const messageTextHtml = linkedMessage.replace(/\n/g, '<br>');
@@ -1690,7 +1636,7 @@
 
       container.innerHTML = `
         ${replyHtml}
-        <div class="message-name" style="color: ${data.color || '#333'}">${escapeHtml(data.username)}${awayMark}${statusHtml}</div>
+        <div class="message-name" style="color: ${data.color || '#333'}">${escapeHtml(data.username)}${statusHtml}</div>
         <div class="message-text">${messageTextHtml}</div>
         <div class="message-meta">
           <span class="message-time">${formatTime(data.timestamp)}</span>
@@ -1912,11 +1858,7 @@
 
     function updateUserList(users) {
       userCount.textContent = `${users.length}人`;
-      userSockets.clear();
-      users.forEach(username => {
-        userSockets.set(username, true);
-      });
-      updateOnlineUsersList();
+      userNames.textContent = users.join(', ');
     }
 
     document.getElementById('updateProfileButton').addEventListener('click', () => {
@@ -1984,26 +1926,6 @@
     socket.on('systemMessage', (text) => {
       addSystemMessage(text);
     });
-
-    function updateOnlineUsersList() {
-      userNames.innerHTML = '';
-      const uniqueUsers = Array.from(new Set(Array.from(userSockets.keys())));
-      uniqueUsers.forEach((name, index) => {
-        const userSpan = document.createElement('span');
-        userSpan.textContent = name;
-        userSpan.className = 'user-name-item';
-        if (awayUsers.includes(name)) {
-          const mark = document.createElement('span');
-          mark.textContent = '(放置中)';
-          mark.className = 'away-mark';
-          userSpan.appendChild(mark);
-        }
-        userNames.appendChild(userSpan);
-        if (index < uniqueUsers.length - 1) {
-          userNames.appendChild(document.createTextNode(', '));
-        }
-      });
-    }
 
     socket.on('userJoined', (data) => {
       addSystemMessage(`${data.username} がチャットに参加しました`);
@@ -2073,19 +1995,10 @@
         const searchInput = document.getElementById('ip-history-search');
         if (searchInput && !searchInput.dataset.listenerAttached) {
           searchInput.dataset.listenerAttached = 'true';
-          searchInput.addEventListener('input', async (e) => {
+          searchInput.addEventListener('input', (e) => {
             const query = e.target.value.toLowerCase().trim();
             if (!query) {
               renderIpHistory(allUserIpHistory);
-            } else if (query === '一般') {
-              // Get current IP bans from server
-              socket.emit('getIpBans', {}, (ipBans) => {
-                const bannedIps = new Set(ipBans.map(b => b.ip_address));
-                const filtered = allUserIpHistory.filter(item => 
-                  !bannedIps.has(item.ipAddress) && !bannedUsers.has(item.displayName)
-                );
-                renderIpHistory(filtered);
-              });
             } else {
               const filtered = allUserIpHistory.filter(item =>
                 item.displayName.toLowerCase().includes(query)
