@@ -135,14 +135,6 @@ async function initDatabase() {
       CREATE INDEX IF NOT EXISTS idx_user_ip_history_last_seen ON user_ip_history(last_seen DESC)
     `);
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS privileged_admins (
-        display_name VARCHAR(60) PRIMARY KEY,
-        added_by VARCHAR(60) NOT NULL,
-        added_at TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-
     await seedAdminAccounts();
 
     useDatabase = true;
@@ -303,18 +295,6 @@ async function renameUser(oldUsername, newUsername) {
     }
   } catch (error) {
     console.error('Error renaming user:', error.message);
-    return false;
-  }
-}
-
-async function deleteAllPrivateMessages() {
-  if (!useDatabase) return false;
-
-  try {
-    await pool.query('DELETE FROM private_messages');
-    return true;
-  } catch (error) {
-    console.error('Error deleting all private messages:', error.message);
     return false;
   }
 }
@@ -495,32 +475,6 @@ async function seedAdminAccounts() {
     }
   } catch (error) {
     console.error('Error seeding admin accounts:', error.message);
-  }
-}
-
-async function addPrivilegedAdmin(displayName, addedBy) {
-  if (!useDatabase) return false;
-  try {
-    await pool.query(
-      'INSERT INTO privileged_admins (display_name, added_by) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [displayName, addedBy]
-    );
-    return true;
-  } catch (error) {
-    console.error('Error adding privileged admin:', error.message);
-    return false;
-  }
-}
-
-async function isPrivilegedAdmin(displayName) {
-  if (ADMIN_USERS.includes(displayName)) return true;
-  if (!useDatabase) return false;
-  try {
-    const result = await pool.query('SELECT 1 FROM privileged_admins WHERE display_name = $1', [displayName]);
-    return result.rows.length > 0;
-  } catch (error) {
-    console.error('Error checking privileged admin:', error.message);
-    return false;
   }
 }
 
@@ -940,17 +894,6 @@ async function removeIpBan(ipAddress) {
   }
 }
 
-async function getIpBanInfo(ipAddress) {
-  if (!useDatabase) return null;
-  try {
-    const result = await pool.query('SELECT * FROM ip_bans WHERE ip_address = $1', [ipAddress]);
-    return result.rows.length > 0 ? result.rows[0] : null;
-  } catch (error) {
-    console.error('Error getting IP ban info:', error.message);
-    return null;
-  }
-}
-
 async function isIpBanned(ipAddress) {
   if (!useDatabase) return false;
 
@@ -1028,7 +971,6 @@ module.exports = {
   updateMessage,
   deleteMessage,
   deleteAllMessages,
-  deleteAllPrivateMessages,
   closeDatabase,
   signup,
   login,
@@ -1043,13 +985,10 @@ module.exports = {
   updatePrivateMessage,
   deletePrivateMessage,
   getPrivateMessageById,
-  addPrivilegedAdmin,
-  isPrivilegedAdmin,
   addIpBan,
   removeIpBan,
   isIpBanned,
   getAllIpBans,
-  getIpBanInfo,
   saveUserIpHistory,
   getAllUserIpHistory,
   ADMIN_USERS,
