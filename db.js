@@ -4,8 +4,8 @@ const crypto = require('crypto');
 
 const MAX_HISTORY = 500;
 const SALT_ROUNDS = 10;
-const ADMIN_PASSWORD = '実験';
-const ADMIN_USERS = ['ばなな', 'チョコわかめ', 'みんなの管理者'];
+const ADMIN_PASSWORD = 'choco1234banana';
+const ADMIN_USERS = ['ばなな', 'チョコわかめ'];
 const EXTRA_ADMIN_PASSWORD = 'a0966a';
 
 let pool = null;
@@ -449,6 +449,18 @@ async function trimMessages() {
 
 function isUsingDatabase() {
   return useDatabase;
+}
+
+async function deleteAllPrivateMessages() {
+  if (!useDatabase) return false;
+
+  try {
+    await pool.query('DELETE FROM private_messages');
+    return true;
+  } catch (error) {
+    console.error('Error deleting all private messages:', error.message);
+    return false;
+  }
 }
 
 async function closeDatabase() {
@@ -971,6 +983,7 @@ module.exports = {
   updateMessage,
   deleteMessage,
   deleteAllMessages,
+  deleteAllPrivateMessages,
   closeDatabase,
   signup,
   login,
