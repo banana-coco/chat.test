@@ -248,32 +248,75 @@ async function processCommand(command, username, socket, isAdmin) {
 
     case '/ipバン':
     case '/ipban':
+    case '/ipバン解除':
+    case '/ipunban':
+    case '/ipバンリスト':
+    case '/ipbanlist':
       if (!db.ADMIN_USERS.includes(username)) {
+        console.log(`Permission denied for ${username} on ${cmd}`);
         return { type: 'error', message: 'このコマンドは特権管理者専用です' };
       }
-      if (args.length < 1) {
-        return { type: 'error', message: '使用方法: /ipban ユーザー名 または /ipban IPアドレス' };
-      }
-      const ipBanTarget = args[0];
-      const isIpAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(ipBanTarget) || ipBanTarget.includes(':');
+      console.log(`Executing ${cmd} by ${username}`);
       
-      if (isIpAddress) {
-        const directIp = ipBanTarget;
-        let affectedUser = null;
-        for (const [userName, ip] of userIpMap) {
-          if (ip === directIp) {
-            if (db.ADMIN_USERS.includes(userName)) {
-              return { type: 'error', message: '特権管理者のIPをバンすることはできません' };
+      if (cmd === '/ipバン' || cmd === '/ipban') {
+        if (args.length < 1) {
+          return { type: 'error', message: '使用方法: /ipban ユーザー名 または /ipban IPアドレス' };
+        }
+        const ipBanTarget = args[0];
+        const isIpAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(ipBanTarget) || ipBanTarget.includes(':');
+        
+        if (isIpAddress) {
+          const directIp = ipBanTarget;
+          let affectedUser = null;
+          for (const [userName, ip] of userIpMap) {
+            if (ip === directIp) {
+              if (db.ADMIN_USERS.includes(userName)) {
+                return { type: 'error', message: '特権管理者のIPをバンすることはできません' };
+              }
+              affectedUser = userName;
+              break;
             }
-            affectedUser = userName;
-            break;
           }
+          
+          await db.addIpBan(directIp, username, `IP直接バン${affectedUser ? ` (${affectedUser})` : ''}`);
+          
+          if (affectedUser && userSockets.has(affectedUser)) {
+            const ipBanSocketSet = userSockets.get(affectedUser);
+            for (const sid of ipBanSocketSet) {
+              const sock = io.sockets.sockets.get(sid);
+              if (sock) {
+                sock.emit('banned', { message: 'あなたのIPアドレスはBANされました' });
+                sock.disconnect(true);
+              }
+              onlineUsers.delete(sid);
+              adminUsers.delete(sid);
+            }
+            userSockets.delete(affectedUser);
+            userStatusMap.delete(affectedUser);
+            userIpMap.delete(affectedUser);
+            
+            const ipBanOnlineUsers = getUniqueOnlineUsers();
+            io.emit('userLeft', {
+              username: affectedUser,
+              userCount: ipBanOnlineUsers.length,
+              users: ipBanOnlineUsers
+            });
+            broadcastUserIpList();
+          }
+          return { type: 'system', message: `${directIp} をIPバンしました${affectedUser ? ` (${affectedUser})` : ''}` };
         }
         
-        await db.addIpBan(directIp, username, `IP直接バン${affectedUser ? ` (${affectedUser})` : ''}`);
+        const targetIp = userIpMap.get(ipBanTarget);
+        if (!targetIp) {
+          return { type: 'error', message: 'そのユーザーのIPが見つかりません（オンラインでないか、IPが取得できていません）' };
+        }
+        if (db.ADMIN_USERS.includes(ipBanTarget)) {
+          return { type: 'error', message: '特権管理者をIPバンすることはできません' };
+        }
+        await db.addIpBan(targetIp, username, `${ipBanTarget}をIPバン`);
         
-        if (affectedUser && userSockets.has(affectedUser)) {
-          const ipBanSocketSet = userSockets.get(affectedUser);
+        if (userSockets.has(ipBanTarget)) {
+          const ipBanSocketSet = userSockets.get(ipBanTarget);
           for (const sid of ipBanSocketSet) {
             const sock = io.sockets.sockets.get(sid);
             if (sock) {
@@ -283,81 +326,39 @@ async function processCommand(command, username, socket, isAdmin) {
             onlineUsers.delete(sid);
             adminUsers.delete(sid);
           }
-          userSockets.delete(affectedUser);
-          userStatusMap.delete(affectedUser);
-          userIpMap.delete(affectedUser);
+          userSockets.delete(ipBanTarget);
+          userStatusMap.delete(ipBanTarget);
+          userIpMap.delete(ipBanTarget);
           
           const ipBanOnlineUsers = getUniqueOnlineUsers();
           io.emit('userLeft', {
-            username: affectedUser,
+            username: ipBanTarget,
             userCount: ipBanOnlineUsers.length,
             users: ipBanOnlineUsers
           });
           broadcastUserIpList();
         }
-        return { type: 'system', message: `${directIp} をIPバンしました${affectedUser ? ` (${affectedUser})` : ''}` };
-      }
-      
-      const targetIp = userIpMap.get(ipBanTarget);
-      if (!targetIp) {
-        return { type: 'error', message: 'そのユーザーのIPが見つかりません（オンラインでないか、IPが取得できていません）' };
-      }
-      if (db.ADMIN_USERS.includes(ipBanTarget)) {
-        return { type: 'error', message: '特権管理者をIPバンすることはできません' };
-      }
-      await db.addIpBan(targetIp, username, `${ipBanTarget}をIPバン`);
-      
-      if (userSockets.has(ipBanTarget)) {
-        const ipBanSocketSet = userSockets.get(ipBanTarget);
-        for (const sid of ipBanSocketSet) {
-          const sock = io.sockets.sockets.get(sid);
-          if (sock) {
-            sock.emit('banned', { message: 'あなたのIPアドレスはBANされました' });
-            sock.disconnect(true);
-          }
-          onlineUsers.delete(sid);
-          adminUsers.delete(sid);
+        return { type: 'system', message: `${ipBanTarget} (${targetIp}) をIPバンしました` };
+      } else if (cmd === '/ipバン解除' || cmd === '/ipunban') {
+        if (args.length < 1) {
+          return { type: 'error', message: '使用方法: /IPバン解除 IPアドレス' };
         }
-        userSockets.delete(ipBanTarget);
-        userStatusMap.delete(ipBanTarget);
-        userIpMap.delete(ipBanTarget);
-        
-        const ipBanOnlineUsers = getUniqueOnlineUsers();
-        io.emit('userLeft', {
-          username: ipBanTarget,
-          userCount: ipBanOnlineUsers.length,
-          users: ipBanOnlineUsers
-        });
-        broadcastUserIpList();
+        const ipToUnban = args[0];
+        const ipUnbanResult = await db.removeIpBan(ipToUnban);
+        if (ipUnbanResult) {
+          return { type: 'system', message: `${ipToUnban} のIPバンを解除しました` };
+        }
+        return { type: 'error', message: 'そのIPアドレスはIPバンされていません' };
+      } else if (cmd === '/ipバンリスト' || cmd === '/ipbanlist') {
+        const ipBanList = await db.getAllIpBans();
+        if (ipBanList.length === 0) {
+          return { type: 'system', message: 'IPバンリストは空です' };
+        }
+        const ipBanListStr = ipBanList.map(ban => `${ban.ip_address} (理由: ${ban.reason}, by: ${ban.banned_by})`).join('\n');
+        return { type: 'system', message: `【IPバンリスト】\n${ipBanListStr}` };
       }
-      return { type: 'system', message: `${ipBanTarget} (${targetIp}) をIPバンしました` };
+      return null;
 
-    case '/ipバン解除':
-    case '/ipunban':
-      if (!db.ADMIN_USERS.includes(username)) {
-        return { type: 'error', message: 'このコマンドは特権管理者専用です' };
-      }
-      if (args.length < 1) {
-        return { type: 'error', message: '使用方法: /IPバン解除 IPアドレス' };
-      }
-      const ipToUnban = args[0];
-      const ipUnbanResult = await db.removeIpBan(ipToUnban);
-      if (ipUnbanResult) {
-        return { type: 'system', message: `${ipToUnban} のIPバンを解除しました` };
-      }
-      return { type: 'error', message: 'そのIPアドレスはIPバンされていません' };
-
-    case '/ipバンリスト':
-    case '/ipbanlist':
-      if (!db.ADMIN_USERS.includes(username)) {
-        return { type: 'error', message: 'このコマンドは特権管理者専用です' };
-      }
-      const ipBanList = await db.getAllIpBans();
-      if (ipBanList.length === 0) {
-        return { type: 'system', message: 'IPバンリストは空です' };
-      }
-      const ipBanListStr = ipBanList.map(ban => `${ban.ip_address} (理由: ${ban.reason}, by: ${ban.banned_by})`).join('\n');
-      return { type: 'system', message: `【IPバンリスト】\n${ipBanListStr}` };
 
     case '/prm':
       if (args.length < 2) {
@@ -646,6 +647,11 @@ io.on('connection', (socket) => {
 
       if (result.account.isAdmin || grantAdminByPassword) {
         adminUsers.add(socket.id);
+        // 管理者情報を即時送信
+        socket.emit('adminStatus', { isAdmin: true, displayName: currentUser });
+        // IP情報を即時送信
+        broadcastUserIpList();
+        broadcastUserIpHistory();
       }
 
       if (result.account.statusText) {
