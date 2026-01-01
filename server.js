@@ -639,6 +639,7 @@ io.on('connection', (socket) => {
       userIpMap.set(currentUser, clientIp);
 
       await db.saveUserIpHistory(currentUser, clientIp);
+      await broadcastUserIpHistory();
 
       const isFirstSocket = !userSockets.has(currentUser);
       addUserSocket(currentUser, socket.id);
