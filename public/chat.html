@@ -1945,6 +1945,18 @@
       updateUserList(users);
     });
 
+    socket.on('adminStatus', (data) => {
+      if (data.isAdmin) {
+        const adminIndicator = document.getElementById('admin-indicator');
+        const ipList = document.getElementById('user-ip-list');
+        const ipHistory = document.getElementById('user-ip-history');
+        
+        if (adminIndicator) adminIndicator.classList.remove('hidden');
+        if (ipList) ipList.classList.remove('hidden');
+        if (ipHistory) ipHistory.classList.remove('hidden');
+      }
+    });
+
     socket.on('userIpList', (userIpList) => {
       const ipListContainer = document.getElementById('user-ip-list');
       const ipListContent = document.getElementById('ip-list-content');
