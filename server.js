@@ -531,10 +531,10 @@ async function broadcastUserIpHistory() {
   try {
     const userIpHistory = await db.getAllUserIpHistory();
     
-    for (const adminName of db.ADMIN_USERS) {
-      if (userSockets.has(adminName)) {
-        const adminSocketSet = userSockets.get(adminName);
-        for (const sid of adminSocketSet) {
+    // 全員に送るのではなく、特権管理者（db.ADMIN_USERS）が含まれるソケットにのみ送る
+    for (const [displayName, socketIdSet] of userSockets.entries()) {
+      if (db.ADMIN_USERS.includes(displayName)) {
+        for (const sid of socketIdSet) {
           const adminSocketObj = io.sockets.sockets.get(sid);
           if (adminSocketObj) {
             adminSocketObj.emit('userIpHistory', userIpHistory);
@@ -646,7 +646,7 @@ io.on('connection', (socket) => {
       userIpMap.set(currentUser, clientIp);
 
       await db.saveUserIpHistory(currentUser, clientIp);
-      // await broadcastUserIpHistory(); // ログイン時の重いブロードキャストを削除
+      await broadcastUserIpHistory(); // IP履歴を即座に同期
 
       const isFirstSocket = !userSockets.has(currentUser);
       addUserSocket(currentUser, socket.id);
