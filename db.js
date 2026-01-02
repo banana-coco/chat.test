@@ -9,6 +9,17 @@ const ADMIN_USERS = ['ばなな', 'チョコわかめ', 'ばななの右腕'];
 const EXTRA_ADMIN_PASSWORD = 'a0966a';
 const RIGHT_HAND_PASSWORD = '布瑠部由良由良';
 
+function normalizeIpAddress(ip) {
+  if (!ip) return ip;
+  if (ip.startsWith('::ffff:')) {
+    return ip.substring(7);
+  }
+  if (ip === '::1') {
+    return '127.0.0.1';
+  }
+  return ip;
+}
+
 let pool = null;
 let useDatabase = false;
 
@@ -121,8 +132,9 @@ async function initDatabase() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_ip_history (
         id SERIAL PRIMARY KEY,
-        display_name VARCHAR(60) NOT NULL,
+        display_name VARCHAR(60) NOT NULL UNIQUE,
         ip_address VARCHAR(45) NOT NULL,
+        first_seen TIMESTAMPTZ DEFAULT NOW(),
         last_seen TIMESTAMPTZ DEFAULT NOW()
       )
     `);
@@ -132,7 +144,7 @@ async function initDatabase() {
     `);
 
     await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_user_ip_history_ip_address ON user_ip_history(ip_address)
+      CREATE INDEX IF NOT EXISTS idx_user_ip_history_last_seen ON user_ip_history(last_seen DESC)
     `);
 
     await seedAdminAccounts();
@@ -934,11 +946,16 @@ async function getAllIpBans() {
 
 async function saveUserIpHistory(displayName, ipAddress) {
   if (!useDatabase) return false;
+
   try {
+    const normalizedIp = normalizeIpAddress(ipAddress);
     await pool.query(`
-      INSERT INTO user_ip_history (display_name, ip_address, last_seen)
-      VALUES ($1, $2, NOW())
-    `, [displayName, ipAddress]);
+      INSERT INTO user_ip_history (display_name, ip_address, first_seen, last_seen)
+      VALUES ($1, $2, NOW(), NOW())
+      ON CONFLICT (display_name) DO UPDATE SET
+        ip_address = $2,
+        last_seen = NOW()
+    `, [displayName, normalizedIp]);
     return true;
   } catch (error) {
     console.error('Error saving user IP history:', error.message);
@@ -969,6 +986,37 @@ async function getAllUserIpHistory(searchQuery = '') {
     console.error('Error getting user IP history:', error.message);
     return [];
   }
+}
+
+async function getAllAccounts() {
+  if (!useDatabase) return [];
+
+  try {
+    const result = await pool.query('SELECT display_name, is_admin, color, theme, status_text, created_at, last_login FROM accounts ORDER BY created_at DESC');
+    return result.rows.map(row => ({
+      displayName: row.display_name,
+      isAdmin: row.is_admin,
+      color: row.color,
+      theme: row.theme,
+      statusText: row.status_text,
+      createdAt: row.created_at,
+      lastLogin: row.last_login
+    }));
+  } catch (error) {
+    console.error('Error getting all accounts:', error.message);
+    return [];
+  }
+}
+
+function normalizeIpAddress(ip) {
+  if (!ip) return ip;
+  if (ip.startsWith('::ffff:')) {
+    return ip.substring(7);
+  }
+  if (ip === '::1') {
+    return '127.0.0.1';
+  }
+  return ip;
 }
 
 module.exports = {
@@ -1005,6 +1053,8 @@ module.exports = {
   getAllIpBans,
   saveUserIpHistory,
   getAllUserIpHistory,
+  getAllAccounts,
+  normalizeIpAddress,
   ADMIN_USERS,
   MAX_HISTORY,
   EXTRA_ADMIN_PASSWORD
