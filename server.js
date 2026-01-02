@@ -1057,6 +1057,17 @@ io.on('connection', (socket) => {
     socket.emit('heartbeat-ack');
   });
 
+  socket.on('getIpHistory', async (searchQuery) => {
+    if (currentAccount && currentAccount.isAdmin) {
+      try {
+        const history = await db.getAllUserIpHistory(searchQuery);
+        socket.emit('userIpHistory', history);
+      } catch (error) {
+        console.error('Error fetching IP history:', error.message);
+      }
+    }
+  });
+
   socket.on('disconnect', () => {
     if (currentUser) {
       const userName = currentUser;
