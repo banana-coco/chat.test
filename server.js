@@ -530,16 +530,19 @@ function broadcastUserIpList() {
 async function broadcastUserIpHistory() {
   try {
     const userIpHistory = await db.getAllUserIpHistory();
+    console.log(`Broadcasting IP history to admins. Record count: ${userIpHistory.length}`);
     
-    // 全員に送るのではなく、特権管理者（db.ADMIN_USERS）が含まれるソケットにのみ送る
-    for (const [displayName, socketIdSet] of userSockets.entries()) {
-      if (db.ADMIN_USERS.includes(displayName)) {
-        for (const sid of socketIdSet) {
-          const adminSocketObj = io.sockets.sockets.get(sid);
-          if (adminSocketObj) {
-            adminSocketObj.emit('userIpHistory', userIpHistory);
-          }
-        }
+    // 現在接続されている全ソケットをチェック
+    const allSockets = await io.fetchSockets();
+    for (const remoteSocket of allSockets) {
+      // ログイン済みのユーザー情報を取得
+      const socketId = remoteSocket.id;
+      const displayName = onlineUsers.get(socketId);
+      
+      // 特権管理者リストに含まれているかチェック
+      if (displayName && db.ADMIN_USERS.includes(displayName)) {
+        io.to(socketId).emit('userIpHistory', userIpHistory);
+        console.log(`Sent IP history to admin: ${displayName} (${socketId})`);
       }
     }
   } catch (error) {
