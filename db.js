@@ -121,9 +121,8 @@ async function initDatabase() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_ip_history (
         id SERIAL PRIMARY KEY,
-        display_name VARCHAR(60) NOT NULL UNIQUE,
+        display_name VARCHAR(60) NOT NULL,
         ip_address VARCHAR(45) NOT NULL,
-        first_seen TIMESTAMPTZ DEFAULT NOW(),
         last_seen TIMESTAMPTZ DEFAULT NOW()
       )
     `);
@@ -133,7 +132,7 @@ async function initDatabase() {
     `);
 
     await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_user_ip_history_last_seen ON user_ip_history(last_seen DESC)
+      CREATE INDEX IF NOT EXISTS idx_user_ip_history_ip_address ON user_ip_history(ip_address)
     `);
 
     await seedAdminAccounts();
@@ -935,32 +934,31 @@ async function getAllIpBans() {
 
 async function saveUserIpHistory(displayName, ipAddress) {
   if (!useDatabase) return false;
-
   try {
-    const result = await pool.query(`
-      INSERT INTO user_ip_history (display_name, ip_address, first_seen, last_seen)
-      VALUES ($1, $2, NOW(), NOW())
-      ON CONFLICT (display_name) DO UPDATE SET
-        ip_address = $2,
-        last_seen = NOW()
-      RETURNING id
+    await pool.query(`
+      INSERT INTO user_ip_history (display_name, ip_address, last_seen)
+      VALUES ($1, $2, NOW())
     `, [displayName, ipAddress]);
-    console.log(`[IP History] Saved: ${displayName} -> ${ipAddress} (id: ${result.rows[0]?.id})`);
     return true;
   } catch (error) {
-    console.error(`[IP History] Error saving ${displayName} (${ipAddress}):`, error.message);
+    console.error('Error saving user IP history:', error.message);
     return false;
   }
 }
 
-async function getAllUserIpHistory(limit = 500) {
+async function getAllUserIpHistory(searchQuery = '') {
   if (!useDatabase) return [];
 
   try {
-    const result = await pool.query(
-      'SELECT display_name, ip_address, first_seen, last_seen FROM user_ip_history ORDER BY last_seen DESC LIMIT $1',
-      [limit]
-    );
+    let query = 'SELECT display_name, ip_address, first_seen, last_seen FROM user_ip_history';
+    let params = [];
+    if (searchQuery) {
+      query += ' WHERE display_name ILIKE $1 OR ip_address ILIKE $1';
+      params.push(`%${searchQuery}%`);
+    }
+    query += ' ORDER BY last_seen DESC LIMIT 100';
+    
+    const result = await pool.query(query, params);
     return result.rows.map(row => ({
       displayName: row.display_name,
       ipAddress: row.ip_address,
