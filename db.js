@@ -953,7 +953,7 @@ async function saveUserIpHistory(displayName, ipAddress) {
       INSERT INTO user_ip_history (display_name, ip_address, first_seen, last_seen)
       VALUES ($1, $2, NOW(), NOW())
       ON CONFLICT (display_name) DO UPDATE SET
-        ip_address = $2,
+        ip_address = EXCLUDED.ip_address,
         last_seen = NOW()
     `, [displayName, normalizedIp]);
     return true;
