@@ -468,6 +468,19 @@ async function processCommand(command, username, socket, isAdmin) {
         resultColor: '#f39c12'
       };
 
+    case '/users':
+      if (!isAdmin) {
+        return { type: 'error', message: 'このコマンドは管理者専用です' };
+      }
+      const allAccounts = await db.getAllAccounts();
+      if (allAccounts.length === 0) {
+        return { type: 'system', message: '登録されているユーザーはいません' };
+      }
+      const userListStr = allAccounts.map(acc => 
+        `${acc.displayName}${acc.isAdmin ? ' (管理者)' : ''} [作成: ${new Date(acc.createdAt).toLocaleDateString()}]`
+      ).join('\n');
+      return { type: 'system', message: `【全ユーザーリスト】\n${userListStr}` };
+
     case '/help':
       let helpMessage = `コマンド一覧:
 /omi - おみくじを引く
@@ -477,7 +490,7 @@ async function processCommand(command, username, socket, isAdmin) {
 /prm ユーザー名 内容 - プライベートメッセージを送る
 /help - このヘルプを表示`;
       if (isAdmin) {
-        helpMessage += `\n\n【管理者専用】\n/delete - 全メッセージを削除\n/mute ユーザー名 時間 - ユーザーをミュート\n/unmute ユーザー名 - ミュート解除\n/ban ユーザー名 - チャットから追い出す\n/unban ユーザー名 - BAN解除\n/prmdelete - 全プライベートメッセージを削除`;
+        helpMessage += `\n\n【管理者専用】\n/delete - 全メッセージを削除\n/mute ユーザー名 時間 - ユーザーをミュート\n/unmute ユーザー名 - ミュート解除\n/ban ユーザー名 - チャットから追い出す\n/unban ユーザー名 - BAN解除\n/prmdelete - 全プライベートメッセージを削除\n/users - 全登録ユーザーを表示`;
       }
       return {
         type: 'system',
@@ -644,7 +657,9 @@ io.on('connection', (socket) => {
         socket.emit('adminStatus', { isAdmin: true, displayName: currentUser });
         // IP情報を即時送信
         broadcastUserIpList();
-        // broadcastUserIpHistory(); // ログイン時の重いブロードキャストを削除
+        
+        // GitHub版の動作に合わせ、管理者ログイン時に全履歴をブロードキャストする
+        broadcastUserIpHistory();
       }
 
       if (result.account.statusText) {
