@@ -938,6 +938,11 @@
 
     #ip-history-content {
       background: #fff;
+      max-height: 400px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 10px;
     }
 
     .theme-dark #ip-history-content {
@@ -1980,6 +1985,7 @@
 
     function renderIpHistory(itemsToRender) {
       const historyContent = document.getElementById('ip-history-content');
+      if (!historyContent) return;
       
       if (itemsToRender && itemsToRender.length > 0) {
         historyContent.innerHTML = itemsToRender.map(item => `
@@ -1990,19 +1996,20 @@
           </div>
         `).join('');
       } else {
-        historyContent.innerHTML = '<div style="color: #888; font-size: 12px;">該当するユーザーがありません</div>';
+        historyContent.innerHTML = '<div style="color: #888; font-size: 12px; padding: 10px; text-align: center;">該当する履歴がありません</div>';
       }
     }
 
     function updateUserIpHistory(userIpHistory) {
       const historyContainer = document.getElementById('user-ip-history');
+      if (!historyContainer) return;
       
       if (!isPrivilegedAdmin) {
         historyContainer.classList.add('hidden');
         return;
       }
       
-      if (userIpHistory && userIpHistory.length > 0) {
+      if (userIpHistory) {
         allUserIpHistory = userIpHistory;
         historyContainer.classList.remove('hidden');
         renderIpHistory(userIpHistory);
@@ -2012,19 +2019,10 @@
         if (searchInput && !searchInput.dataset.listenerAttached) {
           searchInput.dataset.listenerAttached = 'true';
           searchInput.addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase().trim();
-            if (!query) {
-              renderIpHistory(allUserIpHistory);
-            } else {
-              const filtered = allUserIpHistory.filter(item =>
-                item.displayName.toLowerCase().includes(query)
-              );
-              renderIpHistory(filtered);
-            }
+            const query = e.target.value.trim();
+            socket.emit('getIpHistory', query);
           });
         }
-      } else {
-        renderIpHistory([]);
       }
     }
 
