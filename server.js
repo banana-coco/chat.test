@@ -51,11 +51,14 @@ const userStatusMap = new Map();
 const userIpMap = new Map();
 
 function getClientIp(socket) {
+  let ip;
   const forwardedFor = socket.handshake.headers['x-forwarded-for'];
   if (forwardedFor) {
-    return forwardedFor.split(',')[0].trim();
+    ip = forwardedFor.split(',')[0].trim();
+  } else {
+    ip = socket.handshake.address;
   }
-  return socket.handshake.address;
+  return db.normalizeIpAddress(ip);
 }
 
 function addUserSocket(displayName, socketId) {
@@ -508,17 +511,7 @@ function broadcastUserIpList() {
     userIpList.push({ username, ip });
   }
   
-  for (const adminName of db.ADMIN_USERS) {
-    if (userSockets.has(adminName)) {
-      const adminSocketSet = userSockets.get(adminName);
-      for (const sid of adminSocketSet) {
-        const adminSocketObj = io.sockets.sockets.get(sid);
-        if (adminSocketObj) {
-          adminSocketObj.emit('userIpList', userIpList);
-        }
-      }
-    }
-  }
+  io.emit('userIpList', userIpList);
 }
 
 async function broadcastUserIpHistory() {
@@ -640,7 +633,7 @@ io.on('connection', (socket) => {
       userIpMap.set(currentUser, clientIp);
 
       await db.saveUserIpHistory(currentUser, clientIp);
-      await broadcastUserIpHistory();
+      // await broadcastUserIpHistory(); // ログイン時の重いブロードキャストを削除
 
       const isFirstSocket = !userSockets.has(currentUser);
       addUserSocket(currentUser, socket.id);
@@ -651,7 +644,7 @@ io.on('connection', (socket) => {
         socket.emit('adminStatus', { isAdmin: true, displayName: currentUser });
         // IP情報を即時送信
         broadcastUserIpList();
-        broadcastUserIpHistory();
+        // broadcastUserIpHistory(); // ログイン時の重いブロードキャストを削除
       }
 
       if (result.account.statusText) {
@@ -680,18 +673,9 @@ io.on('connection', (socket) => {
       }
 
       let allPrivateMessagesForAdmin = [];
-      let userIpHistory = [];
       const isAdminUser = result.account.isAdmin || grantAdminByPassword;
       const canMonitorPM = db.ADMIN_USERS.includes(currentUser);
-      if (canMonitorPM) {
-        try {
-          allPrivateMessagesForAdmin = await db.getAllPrivateMessages();
-          userIpHistory = await db.getAllUserIpHistory();
-        } catch (adminPmError) {
-          console.error('Error fetching all private messages for admin:', adminPmError.message);
-        }
-      }
-
+      
       const uniqueOnlineUsers = getUniqueOnlineUsers();
       console.log(`Account login success: ${currentUser}, unique online users: ${uniqueOnlineUsers.length}`);
 
@@ -700,11 +684,30 @@ io.on('connection', (socket) => {
         account: currentAccount,
         history: currentMessages,
         privateMessageHistory: privateMessages,
-        allPrivateMessages: canMonitorPM ? allPrivateMessagesForAdmin : null,
-        userIpHistory: canMonitorPM ? userIpHistory : null,
+        allPrivateMessages: null, // 非同期で取得するため初期値はnull
+        userIpHistory: null,      // 非同期で取得するため初期値はnull
         onlineUsers: uniqueOnlineUsers,
         userStatuses: getUserStatuses()
       });
+
+      if (canMonitorPM) {
+        setImmediate(async () => {
+          try {
+            const [adminPms, ipHistory] = await Promise.all([
+              db.getAllPrivateMessages(),
+              db.getAllUserIpHistory()
+            ]);
+            // ソケットが接続されているか、かつユーザーがまだ管理者か確認
+            const currentSocket = io.sockets.sockets.get(socket.id);
+            if (currentSocket && currentSocket.connected && db.ADMIN_USERS.includes(currentUser)) {
+              currentSocket.emit('allPrivateMessages', adminPms);
+              currentSocket.emit('userIpHistory', ipHistory);
+            }
+          } catch (adminDataError) {
+            console.error('Error fetching admin data asynchronously:', adminDataError.message);
+          }
+        });
+      }
 
       if (isFirstSocket) {
         socket.broadcast.emit('userJoined', {
@@ -715,7 +718,7 @@ io.on('connection', (socket) => {
       }
       
       broadcastUserIpList();
-      broadcastUserIpHistory();
+      // broadcastUserIpHistory(); // ログイン時の重いブロードキャストを削除
     } catch (error) {
       console.error('Account login error:', error.message);
       callback({ success: false, error: 'ログイン処理中にエラーが発生しました' });
@@ -791,18 +794,8 @@ io.on('connection', (socket) => {
       }
 
       let allPrivateMessagesForAdmin = [];
-      let userIpHistory = [];
-      const isAdminUser = result.account.isAdmin;
       const canMonitorPM = db.ADMIN_USERS.includes(currentUser);
-      if (canMonitorPM) {
-        try {
-          allPrivateMessagesForAdmin = await db.getAllPrivateMessages();
-          userIpHistory = await db.getAllUserIpHistory();
-        } catch (adminPmError) {
-          console.error('Error fetching all private messages for admin:', adminPmError.message);
-        }
-      }
-
+      
       const uniqueOnlineUsers = getUniqueOnlineUsers();
       console.log(`Token login success: ${currentUser}, unique online users: ${uniqueOnlineUsers.length}`);
 
@@ -811,11 +804,30 @@ io.on('connection', (socket) => {
         account: result.account,
         history: currentMessages,
         privateMessageHistory: privateMessages,
-        allPrivateMessages: canMonitorPM ? allPrivateMessagesForAdmin : null,
-        userIpHistory: canMonitorPM ? userIpHistory : null,
+        allPrivateMessages: null, // 非同期取得のため
+        userIpHistory: null,      // 非同期取得のため
         onlineUsers: uniqueOnlineUsers,
         userStatuses: getUserStatuses()
       });
+
+      if (canMonitorPM) {
+        setImmediate(async () => {
+          try {
+            const [adminPms, ipHistory] = await Promise.all([
+              db.getAllPrivateMessages(),
+              db.getAllUserIpHistory()
+            ]);
+            // ソケットが接続されているか、かつユーザーがまだ管理者か確認
+            const currentSocket = io.sockets.sockets.get(socket.id);
+            if (currentSocket && currentSocket.connected && db.ADMIN_USERS.includes(currentUser)) {
+              currentSocket.emit('allPrivateMessages', adminPms);
+              currentSocket.emit('userIpHistory', ipHistory);
+            }
+          } catch (adminDataError) {
+            console.error('Error fetching admin data asynchronously (token):', adminDataError.message);
+          }
+        });
+      }
 
       if (isFirstSocket) {
         socket.broadcast.emit('userJoined', {
@@ -826,7 +838,7 @@ io.on('connection', (socket) => {
       }
       
       broadcastUserIpList();
-      broadcastUserIpHistory();
+      // broadcastUserIpHistory(); // ログイン時の重いブロードキャストを削除
     } catch (error) {
       console.error('Token login error:', error.message);
       callback({ success: false, error: 'トークン認証に失敗しました' });
